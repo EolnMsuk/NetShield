@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict><key>title</key><string>NetShield</string><key>items</key><array>
+<dict><key>cell</key><string>PSGroupCell</string><key>label</key><string>NetShield · iOS 16 rootless</string>
+<key>footerText</key><string>Experimental socket access control inspired by PyFirewall. The dashboard runs in SpringBoard. Unlock your device to manage rules.</string></dict>
+<dict><key>cell</key><string>PSButtonCell</string><key>label</key><string>Open NetShield Dashboard</string><key>action</key><string>openDashboard</string></dict>
+<dict><key>cell</key><string>PSGroupCell</string><key>footerText</key><string>Unknown intercepted traffic is blocked until approved. Restart or retry the requesting app after allowing. Apple processes and paths that bypass the socket hooks are not protected. If the dashboard does not open, respring and verify that NetShield and rootless RocketBootstrap are loaded.</string></dict>
+</array></dict></plist>
