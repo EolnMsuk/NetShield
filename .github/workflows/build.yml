@@ -1,0 +1,88 @@
+name: Build NetShield
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'NetShield/**'
+      - 'Sources/**'
+      - 'Preferences/**'
+      - 'Tests/**'
+      - 'layout/**'
+      - 'Makefile'
+      - 'control'
+      - 'NetShield.plist'
+      - '.github/workflows/build.yml'
+  pull_request:
+    paths:
+      - 'NetShield/**'
+      - 'Sources/**'
+      - 'Preferences/**'
+      - 'Tests/**'
+      - 'layout/**'
+      - 'Makefile'
+      - 'control'
+      - 'NetShield.plist'
+      - '.github/workflows/build.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    env:
+      THEOS: ${{ github.workspace }}/.theos-toolchain
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate project
+        shell: bash
+        run: |
+          if [[ -f NetShield/control ]]; then
+            echo "PROJECT_DIR=$GITHUB_WORKSPACE/NetShield" >> "$GITHUB_ENV"
+          else
+            echo "PROJECT_DIR=$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+          fi
+      - name: Install build dependencies
+        run: brew install make ldid xz
+      - name: Install Theos and iOS 16.5 SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --recursive --depth 1 https://github.com/theos/theos.git "$THEOS"
+          curl --fail --location --retry 3 \
+            https://github.com/theos/sdks/releases/download/master-146e41f/iPhoneOS16.5.sdk.tar.xz \
+            -o "$RUNNER_TEMP/ios-sdk.tar.xz"
+          tar -xJf "$RUNNER_TEMP/ios-sdk.tar.xz" -C "$THEOS/sdks"
+          test -d "$THEOS/sdks/iPhoneOS16.5.sdk"
+          git -C "$THEOS" rev-parse HEAD > "$RUNNER_TEMP/theos-revision.txt"
+          xcodebuild -version >> "$RUNNER_TEMP/theos-revision.txt"
+          shasum -a 256 "$RUNNER_TEMP/ios-sdk.tar.xz" >> "$RUNNER_TEMP/theos-revision.txt"
+      - name: Validate and test policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          python3 Tests/validate.py
+          clang -std=c11 -Wall -Wextra -Werror Tests/policy_test.c -o "$RUNNER_TEMP/policy_test"
+          "$RUNNER_TEMP/policy_test"
+      - name: Build rootless package
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          gmake clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless BUILD_PROBE=1 2>&1 | tee "$RUNNER_TEMP/netshield-build.log"
+          test -n "$(find packages -name '*.deb' -print -quit)"
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetShield-iOS16-rootless
+          path: ${{ env.PROJECT_DIR }}/packages/*.deb
+          if-no-files-found: error
+      - name: Upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetShield-build-diagnostics
+          path: |
+            ${{ runner.temp }}/netshield-build.log
+            ${{ runner.temp }}/theos-revision.txt
+          if-no-files-found: ignore
