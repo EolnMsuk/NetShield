@@ -64,6 +64,9 @@ jobs:
           python3 Tests/validate.py
           clang -std=c11 -Wall -Wextra -Werror Tests/policy_test.c -o "$RUNNER_TEMP/policy_test"
           "$RUNNER_TEMP/policy_test"
+          clang++ -std=c++17 -fobjc-arc -fblocks -Wall -Wextra -Werror \
+            -framework Foundation Tests/ipc_test.mm Sources/IPC.mm -o "$RUNNER_TEMP/ipc_test"
+          "$RUNNER_TEMP/ipc_test"
       - name: Build rootless package
         shell: bash
         run: |
