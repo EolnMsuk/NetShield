@@ -1,6 +1,8 @@
-# iOS 16 rootless acceptance tests
+# iOS 16 rootless / patched RootHide acceptance tests
 
-Record device model, iOS version, jailbreak/injection version, package revision and RocketBootstrap package version with results. None of these device tests has been run in the Windows authoring environment.
+Record device model, iOS version, jailbreak/injection version, package revision and RootHide patcher/version (when applicable) with results. None of these device tests has been run in the Windows authoring environment.
+
+Run the suite separately on rootless and on a RootHide-converted package, without RocketBootstrap installed. On RootHide, use the converted probe path from the installed package rather than the rootless path below. Verify SpringBoard and app injection independently.
 
 ## Controlled traffic
 
@@ -32,6 +34,12 @@ Use packet capture on the controlled peer for independent evidence. A dashboard 
 | Re-enable protection | Existing block rules enforced on later checks |
 | Existing connection revoked | Later hooked I/O denied after invalidation/expiry; in-flight/kernel traffic may finish |
 | Broker unavailable | Intercepted calls denied after at most three seconds of stale allow; no caller thread waits for human/IPC |
+| Broker stops responding, then recovers | Worker times out and later refreshes succeed without relaunching the app |
+| Port 49671 already occupied before respring | Dashboard reports IPC unavailable; investigate the local port owner |
+| Wi-Fi/cellular unavailable; airplane mode | Local policy requests still reach SpringBoard; external traffic may naturally fail |
+| VPN/local-network permission changes | Verify loopback IPC works in each sandboxed test app; denied IPC must fail closed |
+| Ordinary app loopback sockets | Remain subject to policy; no blanket loopback exemption |
+| Remote connection to device port 49671 | No reply; broker binds only to 127.0.0.1 |
 | File, pipe, AF_UNIX I/O | Normal local operations work; no access prompts |
 | Reused/duplicated socket fd | Correct socket classification; no stale per-fd rule |
 | No network | No alert loop; retry possible after reconnect |
@@ -41,4 +49,4 @@ Use packet capture on the controlled peer for independent evidence. A dashboard 
 
 Also test representative third-party apps using URLSession, WebKit, Network.framework and QUIC, plus background transfers and injection-disabled apps. **Document bypasses as failures of coverage, not successes because a different socket was blocked.** The probe only validates the particular BSD functions it calls. Exercise listen/accept and read/write/readv/writev/sendmsg/recvmsg with an app-level harness if those paths matter to your deployment.
 
-If SpringBoard fails to present its overlay, collect its crash log, confirm RocketBootstrap resolution, and inspect `SBLockScreenManager.isUILocked` and UIWindowScene behavior on that jailbreak. These are private interfaces requiring on-device validation.
+If SpringBoard fails to present its overlay, collect its crash log, confirm the dashboard reports a working loopback listener, and inspect `SBLockScreenManager.isUILocked` and UIWindowScene behavior on that jailbreak. These are private interfaces requiring on-device validation.

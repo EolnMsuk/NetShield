@@ -42,7 +42,7 @@
         _status = @"Save failed — changes are in memory only";
     } else {
         chmod(NSStore.fileSystemRepresentation, 0600);
-        _status = @"Broker online · rules saved";
+        _status = _ipcOnline ? @"Broker online - rules saved" : @"Rules saved - IPC unavailable";
     }
     notify_post(NSChanged);
 }
@@ -89,17 +89,13 @@
 @end
 
 void NSStartBroker(void) {
-    static CPDistributedMessagingCenter *center;
     static int token;
     NSBroker *broker = NSBroker.shared;
-    center = NSCreateCenter();
-    if (center) {
-        [center registerForMessageName:@"check" target:broker selector:@selector(check:userInfo:)];
-        [center runServerOnCurrentThread];
-        broker.status = @"Broker online";
-    } else {
-        broker.status = @"IPC unavailable — install rootless RocketBootstrap";
-    }
+    BOOL online = NSStartIPCServer(^NSDictionary *(NSDictionary *info) {
+        return [broker check:@"check" userInfo:info];
+    });
+    broker.ipcOnline = online;
+    broker.status = online ? @"Broker online" : @"IPC unavailable - loopback listener failed";
     notify_register_dispatch(NSShow, &token, dispatch_get_main_queue(), ^(int t) { NSShowDashboard(); });
     [NSTimer scheduledTimerWithTimeInterval:0.75 repeats:YES block:^(NSTimer *timer) { NSPresentNext(); }];
 }

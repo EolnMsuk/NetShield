@@ -28,7 +28,7 @@ assert "THEOS_PACKAGE_SCHEME = rootless" in make
 assert "arm64 arm64e" in make
 control = (root / "control").read_text()
 assert "Architecture: iphoneos-arm64" in control
-assert "com.rpetrich.rocketbootstrap" in control
+assert "rocketbootstrap" not in control.lower()
 loader = plistlib.loads((root / "layout/Library/PreferenceLoader/Preferences/NetShield.plist").read_bytes())
 assert loader["entry"]["bundle"] == "NetShieldPrefs"
 assert (root / "Preferences/Resources/Info.plist").is_file()

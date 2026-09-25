@@ -1,0 +1,4 @@
+dd5c14bb9d91311e221d51b5bfb8c9e5948156db
+Xcode 16.4
+Build version 16F6
+5e0fd3f01266cce4ce012d4a99b38eb56578fca40d09edc81cd83dee958202fb  /Users/runner/work/_temp/ios-sdk.tar.xz

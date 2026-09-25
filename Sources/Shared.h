@@ -4,19 +4,11 @@
 #import <UIKit/UIKit.h>
 #import "Policy.h"
 
-#define NSCenterName @"com.netshield.broker"
+#import "IPC.h"
 #define NSChanged "com.netshield.rules-changed"
 #define NSShow "com.netshield.show-dashboard"
 #define NSStore @"/var/mobile/Library/Preferences/com.netshield.state.plist"
 
-// Minimal declarations; AppSupport and RocketBootstrap are resolved at runtime.
-@interface CPDistributedMessagingCenter : NSObject
-+ (instancetype)centerNamed:(NSString *)name;
-- (void)runServerOnCurrentThread;
-- (void)registerForMessageName:(NSString *)name target:(id)target selector:(SEL)selector;
-- (NSDictionary *)sendMessageAndReceiveReplyName:(NSString *)name userInfo:(NSDictionary *)info;
-@end
-CPDistributedMessagingCenter *NSCreateCenter(void);
 void NSStartClient(void);
 bool NSCheckSocket(int fd, int direction, const struct sockaddr *address, socklen_t length);
 void NSStartBroker(void);
@@ -26,6 +18,7 @@ BOOL NSDeviceLocked(void);
 
 @interface NSBroker : NSObject
 @property(nonatomic) BOOL enabled;
+@property(nonatomic) BOOL ipcOnline;
 @property(nonatomic) BOOL prompts;
 @property(nonatomic, strong) NSMutableDictionary *rules;
 @property(nonatomic, strong) NSMutableDictionary *names;
@@ -33,6 +26,7 @@ BOOL NSDeviceLocked(void);
 @property(nonatomic, strong) NSMutableArray *events;
 @property(nonatomic, copy) NSString *status;
 + (instancetype)shared;
+- (NSDictionary *)check:(NSString *)message userInfo:(NSDictionary *)info;
 - (void)save;
 - (void)setRule:(NSInteger)mask identity:(NSString *)identity;
 - (void)removeRule:(NSString *)identity;

@@ -6,4 +6,4 @@ Description: Experimental prompt-based socket access control inspired by PyFirew
 Maintainer: NetShield contributors
 Author: NetShield contributors
 Section: Tweaks
-Depends: firmware (>= 16.0), firmware (<< 17.0), mobilesubstrate, preferenceloader, com.rpetrich.rocketbootstrap
+Depends: firmware (>= 16.0), firmware (<< 17.0), mobilesubstrate, preferenceloader

@@ -13,7 +13,6 @@ static std::atomic<bool> busy{false};
 static std::atomic<uint64_t> generation{0};
 static NSString *identity, *displayName;
 static dispatch_queue_t worker;
-static CPDistributedMessagingCenter *center;
 static int changeToken;
 static std::atomic<double> nextRefresh{0};
 static std::atomic<double> lastReply{0};
@@ -74,8 +73,7 @@ bool NSCheckSocket(int fd, int direction, const struct sockaddr *address, sockle
                     // IPC never runs on the app's network or UI thread.
                     inside = true;
                     @try {
-                        if (!center) center = NSCreateCenter();
-                        NSDictionary *reply = [center sendMessageAndReceiveReplyName:@"check" userInfo:info];
+                        NSDictionary *reply = NSRequestPolicy(info);
                         if (generation.load() == version) {
                             NSNumber *value = reply[@"mask"], *active = reply[@"enabled"];
                             BOOL valid = [value isKindOfClass:NSNumber.class] && [active isKindOfClass:NSNumber.class];
@@ -86,7 +84,6 @@ bool NSCheckSocket(int fd, int direction, const struct sockaddr *address, sockle
                         }
                     } @catch (NSException *exception) {
                         mask.store(NSUnknown);
-                        center = nil;
                     }
                     inside = false;
                     busy.store(false);

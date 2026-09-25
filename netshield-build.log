@@ -1,0 +1,57 @@
+[0;36m==> [1;39mCleaning…[m
+[1;31m> [1;3;39mMaking clean in Preferences…[m
+[0;36m==> [1;39mCleaning…[m
+[1;31m> [1;3;39mMaking clean in Tests/Probe…[m
+[0;36m==> [1;39mCleaning…[m
+[1;31m> [1;3;39mMaking all for tweak NetShield…[m
+[0;31m==> [1;39mPreprocessing Sources/Tweak.xm…[m
+[0;31m==> [1;39mPreprocessing Sources/Tweak.xm…[m
+[0;32m==> [1;39mCompiling Sources/Broker.mm (arm64)…[m
+[0;32m==> [1;39mCompiling Sources/Client.mm (arm64)…[m
+[0;32m==> [1;39mCompiling Sources/Client.mm (arm64e)…[m
+[0;32m==> [1;39mCompiling Sources/Broker.mm (arm64e)…[m
+[0;32m==> [1;39mCompiling Sources/IPC.mm (arm64)…[m
+[0;32m==> [1;39mCompiling Sources/Dashboard.mm (arm64)…[m
+[0;32m==> [1;39mCompiling Sources/Dashboard.mm (arm64e)…[m
+[0;32m==> [1;39mCompiling Sources/IPC.mm (arm64e)…[m
+[0;32m==> [1;39mCompiling Sources/Tweak.xm (arm64)…[m
+[0;32m==> [1;39mCompiling Sources/Tweak.xm (arm64e)…[m
+[0;33m==> [1;39mLinking tweak NetShield (arm64)…[m
+ld: warning: -multiply_defined is obsolete
+[0;34m==> [1;39mGenerating debug symbols for NetShield…[m
+[0;34m==> [1;39mStripping NetShield (arm64)…[m
+[0;33m==> [1;39mLinking tweak NetShield (arm64e)…[m
+ld: warning: -multiply_defined is obsolete
+[0;34m==> [1;39mGenerating debug symbols for NetShield…[m
+[0;34m==> [1;39mStripping NetShield (arm64e)…[m
+[0;34m==> [1;39mMerging tweak NetShield…[m
+[0;34m==> [1;39mSigning NetShield…[m
+[1;31m> [1;3;39mMaking all in Preferences…[m
+[1;31m> [1;3;39mMaking all for bundle NetShieldPrefs…[m
+[0;35m==> [1;39mCopying resource directories into the bundle wrapper…[m
+[0;32m==> [1;39mCompiling NSRootListController.m (arm64e)…[m
+[0;32m==> [1;39mCompiling NSRootListController.m (arm64)…[m
+[0;33m==> [1;39mLinking bundle NetShieldPrefs (arm64e)…[m
+ld: warning: -multiply_defined is obsolete
+[0;34m==> [1;39mGenerating debug symbols for NetShieldPrefs…[m
+[0;34m==> [1;39mStripping NetShieldPrefs (arm64e)…[m
+[0;33m==> [1;39mLinking bundle NetShieldPrefs (arm64)…[m
+ld: warning: -multiply_defined is obsolete
+[0;34m==> [1;39mGenerating debug symbols for NetShieldPrefs…[m
+[0;34m==> [1;39mStripping NetShieldPrefs (arm64)…[m
+[0;34m==> [1;39mMerging bundle NetShieldPrefs…[m
+[0;34m==> [1;39mSigning NetShieldPrefs…[m
+[1;31m> [1;3;39mMaking all in Tests/Probe…[m
+[1;31m> [1;3;39mMaking all for tool netshield-probe…[m
+[0;32m==> [1;39mCompiling main.c (arm64)…[m
+[0;33m==> [1;39mLinking tool netshield-probe (arm64)…[m
+ld: warning: -multiply_defined is obsolete
+[0;34m==> [1;39mGenerating debug symbols for netshield-probe…[m
+[0;34m==> [1;39mStripping netshield-probe (arm64)…[m
+[0;34m==> [1;39mSigning netshield-probe…[m
+[1;31m> [1;3;39mMaking stage for tweak NetShield…[m
+[1;31m> [1;3;39mMaking stage in Preferences…[m
+[1;31m> [1;3;39mMaking stage for bundle NetShieldPrefs…[m
+[1;31m> [1;3;39mMaking stage in Tests/Probe…[m
+[1;31m> [1;3;39mMaking stage for tool netshield-probe…[m
+dm.pl: building package `com.netshield.tweak:iphoneos-arm64' in `./packages/com.netshield.tweak_0.1.0_iphoneos-arm64.deb'
