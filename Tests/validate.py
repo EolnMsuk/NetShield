@@ -26,7 +26,9 @@ for variable in ("NetShield_FILES",):
         assert (root / name).is_file(), f"Missing source {name}"
 assert "THEOS_PACKAGE_SCHEME = rootless" in make
 assert "arm64 arm64e" in make
-control = (root / "control").read_text()
+control_bytes = (root / "control").read_bytes()
+assert b"\r" not in control_bytes, "control must use Unix LF line endings for Debian packaging"
+control = control_bytes.decode("utf-8")
 assert "Architecture: iphoneos-arm64" in control
 assert "rocketbootstrap" not in control.lower()
 loader = plistlib.loads((root / "layout/Library/PreferenceLoader/Preferences/NetShield.plist").read_bytes())
