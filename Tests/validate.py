@@ -2,13 +2,22 @@
 import pathlib
 import plistlib
 import re
+from xml.parsers.expat import ExpatError
 
 root = pathlib.Path(__file__).resolve().parents[1]
-plists = list(root.rglob("*.plist"))
+# Only validate project inputs. CI installs Theos (including SDKs and templates)
+# under .theos-toolchain, whose plists are not NetShield package inputs.
+plists = sorted([
+    *root.glob("*.plist"),
+    *(root / "Preferences").rglob("*.plist"),
+    *(root / "layout").rglob("*.plist"),
+])
 for path in plists:
-    if ".theos" not in path.parts:
+    try:
         with path.open("rb") as stream:
             plistlib.load(stream)
+    except (OSError, ValueError, plistlib.InvalidFileException, ExpatError) as error:
+        raise SystemExit(f"Invalid plist {path.relative_to(root)}: {error}") from error
 
 make = (root / "Makefile").read_text()
 for variable in ("NetShield_FILES",):
