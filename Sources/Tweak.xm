@@ -10,9 +10,7 @@
     if (!NSCheckSocket(fd, NSOutbound, address, length)) return -1;
     return %orig;
 }
-%hookf(int, connectx, int fd, const sa_endpoints_t *endpoints, sae_associd_t assoc,
-       unsigned int flags, const struct iovec *iov, unsigned int count,
-       size_t *length, sae_connid_t *connection) {
+%hookf(int, connectx, int fd, const sa_endpoints_t *endpoints, sae_associd_t assoc, unsigned int flags, const struct iovec *iov, unsigned int count, size_t *length, sae_connid_t *connection) {
     if (!NSCheckSocket(fd, NSOutbound, endpoints ? endpoints->sae_dstaddr : NULL,
                        endpoints ? endpoints->sae_dstaddrlen : 0)) return -1;
     return %orig;
@@ -29,8 +27,7 @@
     if (!NSCheckSocket(fd, NSOutbound, NULL, 0)) return -1;
     return %orig;
 }
-%hookf(ssize_t, sendto, int fd, const void *buffer, size_t length, int flags,
-       const struct sockaddr *address, socklen_t addressLength) {
+%hookf(ssize_t, sendto, int fd, const void *buffer, size_t length, int flags, const struct sockaddr *address, socklen_t addressLength) {
     if (!NSCheckSocket(fd, NSOutbound, address, addressLength)) return -1;
     return %orig;
 }
@@ -51,8 +48,7 @@
     if (!NSCheckSocket(fd, NSInbound, NULL, 0)) return -1;
     return %orig;
 }
-%hookf(ssize_t, recvfrom, int fd, void *buffer, size_t length, int flags,
-       struct sockaddr *address, socklen_t *addressLength) {
+%hookf(ssize_t, recvfrom, int fd, void *buffer, size_t length, int flags, struct sockaddr *address, socklen_t *addressLength) {
     if (!NSCheckSocket(fd, NSInbound, NULL, 0)) return -1;
     return %orig;
 }
