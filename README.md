@@ -1,6 +1,6 @@
 # NetShield ⛨
 
-**Per-app network access control for jailbroken iOS 16** Manage app access from a native dashboard, save allow/block rules, review activity, and optionally enable strict socket enforcement.
+**Per-app network access control for jailbroken iOS 16**. Manage app access from a native dashboard, save allow/block rules, review activity, and optionally enable strict socket enforcement.
 
 ![NetShield](assets/banner.png)
 
