@@ -12,7 +12,7 @@ void NSPresentNext(void) {}
 @implementation MemoryBroker
 - (void)save {
     self.saves++;
-    self.savedState = @{@"version": @2, @"enabled": @(self.enabled), @"prompts": @(self.prompts),
+    self.savedState = @{@"version": @3, @"enabled": @(self.enabled), @"prompts": @(self.prompts), @"strict": @(self.strict),
         @"rules": [self.rules copy], @"names": [self.names copy]};
 }
 @end
@@ -21,6 +21,7 @@ int main(void) {
     @autoreleasepool {
         MemoryBroker *broker = [[MemoryBroker alloc] initWithState:
             @{@"rules": @{@"legacy": @1, @"out": @2, @"both": @3}, @"enabled": @YES}];
+        assert(!broker.strict); // Preserve the stable default on upgrade.
         assert([broker.rules[@"legacy"] isEqual:@0]);
         assert([broker.rules[@"out"] isEqual:@2]);
         assert([broker.rules[@"both"] isEqual:@3]);
@@ -29,6 +30,14 @@ int main(void) {
             @"hooks": @YES, @"extraHooks": @4} mutableCopy];
         NSDictionary *reply = [broker check:@"check" userInfo:info];
         assert([reply[@"mask"] intValue] == NSUnknown);
+        assert([reply[@"strict"] isEqual:@NO]);
+        broker.strict = YES;
+        reply = [broker check:@"check" userInfo:info];
+        assert([reply[@"strict"] isEqual:@YES]);
+        [broker save];
+        NSBroker *strictReload = [[NSBroker alloc] initWithState:broker.savedState];
+        assert(strictReload.strict);
+        broker.saves = 0;
         assert(broker.pending.count == 1); // Prompt even before a socket hook fires.
         assert(broker.clients.count == 1);
         assert(![broker.clients[@"test.app"][@"observed"] boolValue]);
@@ -72,12 +81,12 @@ int main(void) {
         broker.ipcOnline = YES;
         NSUInteger savesBeforeReset = broker.saves;
         [broker resetToDefaults];
-        assert(broker.enabled && broker.prompts && broker.ipcOnline);
+        assert(broker.enabled && broker.prompts && broker.ipcOnline && !broker.strict);
         assert(broker.rules.count == 0 && broker.names.count == 0);
         assert(broker.pending.count == 0 && broker.events.count == 0 && broker.clients.count == 0);
         assert(broker.saves == savesBeforeReset + 1);
         NSBroker *reloaded = [[NSBroker alloc] initWithState:broker.savedState];
-        assert(reloaded.enabled && reloaded.prompts && reloaded.rules.count == 0 && reloaded.names.count == 0);
+        assert(reloaded.enabled && reloaded.prompts && !reloaded.strict && reloaded.rules.count == 0 && reloaded.names.count == 0);
         reply = [broker check:@"check" userInfo:info];
         assert([reply[@"mask"] intValue] == NSUnknown && [reply[@"enabled"] boolValue]);
         assert(broker.pending.count == 1 && broker.clients.count == 1);

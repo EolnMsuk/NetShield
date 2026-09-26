@@ -24,7 +24,7 @@ The filter matches UIKit/UIKitCore bundles or the UIApplication class, plus expl
 
 Each injected client starts a five-second registration/refresh timer after hook setup. Unknown registered clients enter Requests even if their traffic uses an unhooked path. Clients shows the latest PID, last contact, completion of hook setup, extra entry-point count, and whether an IP socket check reached the broker. Registration and a displayed rule do not prove enforcement. See [Tests/COVERAGE.md](Tests/COVERAGE.md) for the diagnostic procedure.
 
-Hooks: `connect`, `connectx`, `listen`, `accept`, `send`, `sendto`, `sendmsg`, `write`, `writev`, `recv`, `recvfrom`, `recvmsg`, `read`, and `readv`. Optional internal and non-cancelable variants of connect, accept, sendto/sendmsg, recvfrom/recvmsg, and read/write/readv/writev are resolved at runtime. Missing symbols are skipped; addresses aliasing an existing hook are deduplicated. Known non-IP descriptors (files, pipes, AF_UNIX) pass through; unexpected socket-classification failures deny the operation. IPv4/IPv6 loopback and LAN sockets are subject to the same rules as Internet sockets.
+Hooks: `socket` (strict mode), `connect`, `connectx`, `listen`, `accept`, `send`, `sendto`, `sendmsg`, `write`, `writev`, `recv`, `recvfrom`, `recvmsg`, `read`, and `readv`. Optional internal and non-cancelable variants of connect, accept, sendto/sendmsg, recvfrom/recvmsg, and read/write/readv/writev are resolved at runtime. Missing symbols are skipped; addresses aliasing an existing hook are deduplicated. Known non-IP descriptors (files, pipes, AF_UNIX) pass through; unexpected socket-classification failures deny the operation. IPv4/IPv6 loopback and LAN sockets are subject to the same rules as Internet sockets.
 
 **Known bypasses and limits:**
 
@@ -36,6 +36,19 @@ Hooks: `connect`, `connectx`, `listen`, `accept`, `send`, `sendto`, `sendmsg`, `
 - Windows-specific features such as Defender rules, domain/CIDR rules, CSV export, upload thresholds and tray integration are not ported.
 
 For reliable device-wide pre-egress filtering and original-app attribution, a separate privileged filtering/provider design is required. This project does not assume that Network Extension entitlements or a kernel filtering facility are available just because the device is jailbroken.
+
+## Strict socket enforcement (0.3.0, opt-in)
+
+The default remains the tested socket-check behavior. In dashboard Settings, enable **Strict socket enforcement** to test stronger enforcement. The setting is saved and sent with policy replies; reset restores it to OFF.
+
+- Once a client receives strict mode, intercepted IPv4/IPv6 `socket()` creation requires a fresh outgoing allow. Unknown/blocked clients get EACCES. AF_UNIX and NetShield's internal IPC worker remain unaffected.
+- When a covered operation is denied under a fresh explicit rule, NetShield attempts kernel `shutdown()` on that IP socket: both directions for Block In and Out, receive for Block Incoming Only. This affects that socket even if later calls use unhooked functions. An inherited/earlier socket is affected only when it reaches a covered check; there is no background enumeration or blanket process revocation.
+- The fd is duplicated only during shutdown to pin the socket. NetShield never closes the app-owned descriptor or keeps a descriptor cache. Shutdown can fail (for example for some unconnected sockets); the intercepted call still fails with EACCES.
+- Unknown rules, expired replies, IPC failures and invalid policy data do not irreversibly shut down sockets. They still deny covered operations. Switching to Allow Both, disabling strict mode or resetting does not undo shutdown: the app must establish new sockets, sometimes requiring a relaunch. In-flight data is not recalled.
+
+This is **not a catch-all kernel firewall**. A direct socket syscall can bypass the creation hook. Uninjected processes, delegated WebKit/background transfers, shared helpers, and untouched sockets can still bypass an app's rule. Socket creation can also precede the initial strict-mode reply. Never interpret a prompt or a Clients row as proof of complete traffic interception.
+
+A true system-wide implementation requires a separate OS-level filter with reliable app attribution and supported deployment on the target jailbreak. Apple's Network Extension providers have entitlement and deployment requirements; a rootless package or RootHide conversion alone does not establish these capabilities. See [Apple's deployment guidance](https://developer.apple.com/documentation/technotes/tn3134-network-extension-provider-deployment). Do not blindly inject into all system daemons or block a shared helper as though it belongs to one app.
 
 ## Build on GitHub
 
@@ -72,7 +85,7 @@ The rule choices are **Block Incoming Only** (allow sends, deny receives), **Blo
 
 Rules/settings are atomically saved by SpringBoard to `/var/mobile/Library/Preferences/com.netshield.state.plist` (mode 0600). This is mobile user data, separate from the rootless package install tree. Save failures are shown in the dashboard. Pending requests and history disappear on respring. Uninstalling leaves this preferences file for reinstallation; remove that one file and respring if you want to reset all settings.
 
-To start over, open the dashboard's **Settings > Reset to Defaults** and confirm. This clears saved rules and app names, pending requests, activity, and client records, restores Protection and Automatic prompts to ON, saves the default state, and invalidates client policy caches. Running apps will register again and may generate new prompts; client/activity lists need not remain empty. If saving fails, the dashboard reports that changes are in memory only.
+To start over, open the dashboard's **Settings > Reset to Defaults** and confirm. This clears saved rules and app names, pending requests, activity, and client records, restores Protection and Automatic prompts to ON and Strict socket enforcement to OFF, saves the default state, and invalidates client policy caches. Running apps will register again and may generate new prompts; client/activity lists need not remain empty. If saving fails, the dashboard reports that changes are in memory only.
 
 Recovery: disable NetShield in your jailbreak's tweak manager and relaunch affected apps/respring, or uninstall the package in safe mode. The normal Settings process is exempt from filtering. No OS firewall configuration is changed by installation.
 
@@ -99,6 +112,7 @@ Local validation on Windows: plist/layout checks and C policy/cache-expiry asser
 | `Sources/IPC.mm` | Bounded loopback UDP policy transport |
 | `Sources/Broker.mm` | SpringBoard request queue, policy store, history |
 | `Sources/Dashboard.mm` | Dark dashboard and allow/block prompts |
+| `Sources/SocketEnforcement.h` | Short-lived fd pinning and kernel shutdown for strict mode |
 | `Sources/Policy.h` | Portable directional rule evaluator |
 | `Preferences/` and `layout/` | Settings entry and resources |
 | `Tests/` | Host tests, device probe and echo peer |

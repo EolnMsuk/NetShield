@@ -16,3 +16,12 @@ static inline int NSCachedAllows(int mask, int direction, double now, double las
 static inline int NSSelectableRule(int mask) { return mask == 0 || mask == NSOutbound || mask == NSBoth; }
 // Retiring inbound-only must never silently grant outgoing access.
 static inline int NSNormalizeStoredRule(int mask) { return mask == NSInbound ? 0 : mask; }
+
+// Irreversible shutdown requires a fresh, explicit policy, never an IPC failure.
+enum { NSShutdownNone = 0, NSShutdownReceive = 1, NSShutdownBoth = 2 };
+static inline int NSStrictShutdownDecision(int strict, int mask, double now, double lastReply) {
+    if (!strict || lastReply <= 0 || now < lastReply || now - lastReply >= 3.0) return NSShutdownNone;
+    if (mask == 0) return NSShutdownBoth;
+    if (mask == NSOutbound) return NSShutdownReceive;
+    return NSShutdownNone;
+}

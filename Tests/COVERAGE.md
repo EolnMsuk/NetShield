@@ -1,6 +1,6 @@
 # App registration and enforcement diagnostics
 
-Build version 0.2.0 as rootless using the normal workflow. Users may convert that package with their RootHide patcher. Do not reuse the supplied 0.1.0 deb when testing these changes. The rootless YouTube crash is a separate deferred issue; stop that app's rootless test if it crashes and retain its log.
+Build version 0.3.0 as rootless using the normal workflow. Users may convert that package with their RootHide patcher. Do not reuse the supplied older deb when testing these changes. The rootless YouTube crash is a separate deferred issue; stop that app's rootless test if it crashes and retain its log.
 
 1. Install/respring. Fully terminate and relaunch the test app; an already running process retains the old code.
 2. Keep Protection and Automatic prompts enabled. Delete any saved rule for the app to test a new request.
@@ -24,3 +24,5 @@ Where available, use the device's unified log viewer with subsystem `com.netshie
 Record the app/version, jailbreak, injection settings, installed NetShield version, Clients row and Activity results. Client metadata is self-reported and cannot authenticate a hostile app.
 
 System networking daemons, delegated WebKit/background transfers, direct syscalls and unhooked APIs remain outside complete enforcement. Do not claim all system processes are filtered. Supporting shared helpers requires request attribution and a separate enforcement design, not just enabling their injection or treating all helper traffic as Safari/Mail.
+
+For the opt-in stronger mode, follow Strict socket enforcement in DEVICE_TESTS.md. Compare fresh remote traffic with the setting OFF and ON, and recreate connections after relaxing a blocked rule.

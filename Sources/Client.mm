@@ -8,7 +8,9 @@
 #import <atomic>
 #import <os/log.h>
 #import "Shared.h"
+#import "SocketEnforcement.h"
 
+static std::atomic<bool> strictMode{false};
 static std::atomic<int> mask{NSUnknown};
 static std::atomic<bool> busy{false};
 static std::atomic<uint64_t> generation{0};
@@ -36,6 +38,11 @@ static void NSApplyReply(NSDictionary *reply, uint64_t version) {
         brokerReachable = valid;
     }
     if (generation.load() != version) return;
+    if (valid) {
+        bool strict = [reply[@"strict"] isEqual:@YES] && active.boolValue;
+        if (strictMode.exchange(strict) != strict)
+            os_log_with_type(clientLog, OS_LOG_TYPE_DEFAULT, "strict socket enforcement %{public}s", strict ? "enabled" : "disabled");
+    }
     mask.store(valid && !active.boolValue ? NSBoth : (valid ? value.intValue : NSUnknown));
     lastReply.store(valid ? NSProcessInfo.processInfo.systemUptime : 0);
 }
@@ -79,23 +86,10 @@ void NSStartClient(void) {
     });
 }
 
-bool NSCheckSocket(int fd, int direction, const struct sockaddr *address, socklen_t length) {
+static bool NSCheckIPPolicy(int fd, int direction, const struct sockaddr *address, socklen_t length) {
     int savedErrno = errno;
-    if (inside || !worker) return true;
-    struct sockaddr_storage local = {};
-    socklen_t size = sizeof(local);
-    // Only known non-sockets/invalid descriptors pass through on classification failure.
-    // A sandbox or transient getsockname failure must not grant network access.
     inside = true;
-    int classified = getsockname(fd, (struct sockaddr *)&local, &size);
-    int classificationError = errno;
-    if (classified != 0 || (local.ss_family != AF_INET && local.ss_family != AF_INET6)) {
-        bool allowed = classified == 0 || classificationError == ENOTSOCK || classificationError == EBADF;
-        inside = false;
-        errno = allowed ? savedErrno : EACCES;
-        return allowed;
-    }
-    if (!sawSocket.exchange(true)) os_log_with_type(clientLog, OS_LOG_TYPE_DEFAULT, "first IP socket intercepted");
+    if (fd >= 0 && !sawSocket.exchange(true)) os_log_with_type(clientLog, OS_LOG_TYPE_DEFAULT, "first IP socket intercepted");
     @autoreleasepool {
         double now = NSProcessInfo.processInfo.systemUptime;
         bool expected = false;
@@ -118,7 +112,7 @@ bool NSCheckSocket(int fd, int direction, const struct sockaddr *address, sockle
                 inet_ntop(AF_INET6, &v6->sin6_addr, host, sizeof(host));
                 port = ntohs(v6->sin6_port);
             }
-            NSDictionary *info = @{@"identity": identity, @"name": displayName,
+            NSDictionary *info = @{@"identity": identity, @"name": displayName, @"kind": fd < 0 ? @"create" : @"socket",
                 @"direction": @(direction), @"host": [NSString stringWithUTF8String:host], @"port": @(port), @"pid": @(getpid()), @"hooks": @(hooksReady.load()), @"extraHooks": @(additionalHooks.load())};
             uint64_t version = generation.load();
             nextRefresh.store(now + 1.0);
@@ -141,7 +135,37 @@ bool NSCheckSocket(int fd, int direction, const struct sockaddr *address, sockle
     // Expire stale allows even if the broker hangs or SpringBoard restarts.
     bool allowed = NSCachedAllows(mask.load(), direction,
                                   NSProcessInfo.processInfo.systemUptime, lastReply.load());
+    if (!allowed && fd >= 0) {
+        int decision = NSStrictShutdownDecision(strictMode.load(), mask.load(),
+            NSProcessInfo.processInfo.systemUptime, lastReply.load());
+        NSShutdownBlockedSocket(fd, decision);
+    }
     inside = false;
     errno = allowed ? savedErrno : EACCES;
     return allowed;
+}
+
+bool NSCheckSocket(int fd, int direction, const struct sockaddr *address, socklen_t length) {
+    int savedErrno = errno;
+    if (inside || !worker) return true;
+    struct sockaddr_storage local = {};
+    socklen_t size = sizeof(local);
+    // Only known non-sockets/invalid descriptors pass through on classification failure.
+    // A sandbox or transient getsockname failure must not grant network access.
+    inside = true;
+    int classified = getsockname(fd, (struct sockaddr *)&local, &size);
+    int classificationError = errno;
+    if (classified != 0 || (local.ss_family != AF_INET && local.ss_family != AF_INET6)) {
+        bool allowed = classified == 0 || classificationError == ENOTSOCK || classificationError == EBADF;
+        inside = false;
+        errno = allowed ? savedErrno : EACCES;
+        return allowed;
+    }
+    errno = savedErrno;
+    return NSCheckIPPolicy(fd, direction, address, length);
+}
+
+bool NSCheckSocketCreation(int domain) {
+    if (inside || !worker || !strictMode.load() || (domain != AF_INET && domain != AF_INET6)) return true;
+    return NSCheckIPPolicy(-1, NSOutbound, NULL, 0);
 }

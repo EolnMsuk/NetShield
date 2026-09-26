@@ -131,18 +131,26 @@ static ssize_t replacement_writev_nocancel(int fd, const struct iovec *iov, int 
     return original_writev_nocancel(fd, iov, count);
 }
 
+static int (*original_socket)(int domain, int type, int protocol);
+static int replacement_socket(int domain, int type, int protocol) {
+    if (!original_socket) { errno = ENOSYS; return -1; }
+    if (!NSCheckSocketCreation(domain)) return -1;
+    return original_socket(domain, type, protocol);
+}
+
 unsigned NSInstallAdditionalSocketHooks(void) {
     static bool installed = false;
     if (installed) return 0;
     installed = true;
     std::vector<void *> addresses;
-    const char *publicNames[] = {"connect", "connectx", "listen", "accept", "send", "sendto", "sendmsg", "write", "writev", "recv", "recvfrom", "recvmsg", "read", "readv"};
+    const char *publicNames[] = {"socket", "connect", "connectx", "listen", "accept", "send", "sendto", "sendmsg", "write", "writev", "recv", "recvfrom", "recvmsg", "read", "readv"};
     for (const char *name : publicNames) {
         void *address = dlsym(RTLD_DEFAULT, name);
         if (address) addresses.push_back(address);
     }
     struct Entry { const char *name; void *replacement; void **original; };
     Entry entries[] = {
+        {"__socket", (void *)&replacement_socket, (void **)&original_socket},
         {"__connect", (void *)&replacement_connect, (void **)&original_connect},
         {"__connect_nocancel", (void *)&replacement_connect_nocancel, (void **)&original_connect_nocancel},
         {"__sendto", (void *)&replacement_sendto, (void **)&original_sendto},

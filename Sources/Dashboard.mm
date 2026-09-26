@@ -119,7 +119,7 @@ static void NSChoose(UIViewController *presenter, NSDictionary *item, BOOL editi
         for (NSString *key in [[b.clients allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)])
             [rows addObject:b.clients[key]];
         self.rows = rows;
-    } else self.rows = @[@"Protection", @"Automatic prompts", @"Clear activity", @"Reset to Defaults", @"About"];
+    } else self.rows = @[@"Protection", @"Automatic prompts", @"Strict socket enforcement", @"Clear activity", @"Reset to Defaults", @"About"];
     [self.tableView reloadData];
 }
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return self.rows.count; }
@@ -137,16 +137,16 @@ static void NSChoose(UIViewController *presenter, NSDictionary *item, BOOL editi
     cell.textLabel.numberOfLines = 2;
     if (self.page == 4) {
         cell.textLabel.text = self.rows[path.row];
-        if (path.row < 2) {
+        if (path.row < 3) {
             UISwitch *toggle = [UISwitch new];
             toggle.tag = path.row;
-            toggle.on = path.row == 0 ? NSBroker.shared.enabled : NSBroker.shared.prompts;
+            toggle.on = path.row == 0 ? NSBroker.shared.enabled : (path.row == 1 ? NSBroker.shared.prompts : NSBroker.shared.strict);
             [toggle addTarget:self action:@selector(toggle:) forControlEvents:UIControlEventValueChanged];
             cell.accessoryView = toggle;
-            cell.detailTextLabel.text = path.row == 0 ? @"Off permits intercepted traffic after the next policy refresh." : @"Off keeps unknown apps blocked; review Requests manually.";
-        } else if (path.row == 3) {
+            cell.detailTextLabel.text = path.row == 0 ? @"Off permits intercepted traffic after the next policy refresh." : (path.row == 1 ? @"Off keeps unknown apps blocked; review Requests manually." : @"Experimental: deny new IP sockets and shut down blocked sockets when intercepted. Allowing again requires new connections or restarting the app. Does not cover shared helpers or direct syscalls.");
+        } else if (path.row == 4) {
             cell.textLabel.textColor = UIColor.systemRedColor;
-            cell.detailTextLabel.text = @"Clear all rules, requests, activity and clients; restore Protection and Automatic prompts to ON.";
+            cell.detailTextLabel.text = @"Clear all rules, requests, activity and clients; restore Protection and Automatic prompts to ON and Strict socket enforcement to OFF.";
         }
         return cell;
     }
@@ -164,7 +164,7 @@ static void NSChoose(UIViewController *presenter, NSDictionary *item, BOOL editi
     } else {
         NSString *time = [NSDateFormatter localizedStringFromDate:item[@"date"] dateStyle:NSDateFormatterNoStyle timeStyle:NSDateFormatterMediumStyle];
         cell.detailTextLabel.text = [NSString stringWithFormat:@"%@\n%@ · %@ · %@\n%@:%@", detail, time,
-            [item[@"kind"] isEqual:@"register"] ? @"APP START" : ([item[@"direction"] intValue] == NSInbound ? @"IN" : @"OUT"), item[@"result"], [item[@"host"] length] ? item[@"host"] : @"Socket", item[@"port"]];
+            [item[@"kind"] isEqual:@"register"] ? @"APP START" : ([item[@"kind"] isEqual:@"create"] ? @"SOCKET CREATE" : ([item[@"direction"] intValue] == NSInbound ? @"IN" : @"OUT")), item[@"result"], [item[@"host"] length] ? item[@"host"] : @"Socket", item[@"port"]];
         cell.textLabel.textColor = [item[@"result"] isEqualToString:@"Allowed"] ? UIColor.systemGreenColor : UIColor.systemOrangeColor;
     }
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
@@ -173,7 +173,8 @@ static void NSChoose(UIViewController *presenter, NSDictionary *item, BOOL editi
 - (void)toggle:(UISwitch *)sender {
     if (NSDeviceLocked()) return;
     if (sender.tag == 0) NSBroker.shared.enabled = sender.on;
-    else NSBroker.shared.prompts = sender.on;
+    else if (sender.tag == 1) NSBroker.shared.prompts = sender.on;
+    else NSBroker.shared.strict = sender.on;
     [NSBroker.shared save];
     [self refresh];
 }
@@ -183,12 +184,12 @@ static void NSChoose(UIViewController *presenter, NSDictionary *item, BOOL editi
     if (self.page != 4) {
         NSDictionary *item = self.rows[path.row];
         NSChoose(self, item, NSBroker.shared.rules[item[@"identity"]] != nil, ^{ [self refresh]; });
-    } else if (path.row == 2) {
+    } else if (path.row == 3) {
         [NSBroker.shared.events removeAllObjects];
         [self refresh];
-    } else if (path.row == 3) {
+    } else if (path.row == 4) {
         UIAlertController *reset = [UIAlertController alertControllerWithTitle:@"Reset NetShield?"
-            message:@"This clears all saved rules, app names, pending requests, activity and clients, and turns Protection and Automatic prompts ON. This cannot be undone. Running apps will register again and may prompt for new rules."
+            message:@"This clears all saved rules, app names, pending requests, activity and clients, turns Protection and Automatic prompts ON, and turns Strict socket enforcement OFF. This cannot be undone. Running apps will register again and may prompt for new rules."
             preferredStyle:UIAlertControllerStyleAlert];
         [reset addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
         [reset addAction:[UIAlertAction actionWithTitle:@"Reset to Defaults" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
@@ -197,8 +198,8 @@ static void NSChoose(UIViewController *presenter, NSDictionary *item, BOOL editi
             [self refresh];
         }]];
         [self presentViewController:reset animated:YES completion:nil];
-    } else if (path.row == 4) {
-        UIAlertController *about = [UIAlertController alertControllerWithTitle:@"NetShield 0.2 · Experimental" message:@"Inspired by PyFirewall. Registers injected apps on launch and intercepts selected BSD socket functions. Apple apps are included; Settings and SpringBoard stay exempt. It is not a kernel firewall. Network.framework, WebKit helpers, background daemons, direct syscalls and injection-disabled apps may bypass it. Inbound permission controls delivery to the app, not arrival at the device.\n\nRules persist; pending requests and 250 sampled activity entries stay in memory. First attempts fail with EACCES; retry after allowing. Read README before testing." preferredStyle:UIAlertControllerStyleAlert];
+    } else if (path.row == 5) {
+        UIAlertController *about = [UIAlertController alertControllerWithTitle:@"NetShield 0.3 · Experimental" message:@"Inspired by PyFirewall. Registers injected apps on launch and intercepts selected BSD socket functions. Apple apps are included; Settings and SpringBoard stay exempt. It is not a kernel firewall. Network.framework, WebKit helpers, background daemons, direct syscalls and injection-disabled apps may bypass it. Inbound permission controls delivery to the app, not arrival at the device.\n\nRules persist; pending requests and 250 sampled activity entries stay in memory. First attempts fail with EACCES; retry after allowing. Read README before testing." preferredStyle:UIAlertControllerStyleAlert];
         [about addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:about animated:YES completion:nil];
     }

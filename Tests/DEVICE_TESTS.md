@@ -59,3 +59,15 @@ Follow [COVERAGE.md](COVERAGE.md) on rootless and separately after user-side Roo
 ## Reset to defaults
 
 With saved rules, pending requests, activity and client records present, turn Protection and Automatic prompts OFF. In dashboard Settings, select Reset to Defaults. Cancel once and verify nothing changes. Confirm the reset and verify both switches are ON, all old rules/names and pending/history/client records are cleared, and the broker remains online. Running apps may immediately register again and create new requests. Allow a previously allowed app to check in: it must now be unknown and prompt again. Respring and verify old rules and disabled settings do not return. Confirming after the device locks must not reset state. If persistence fails, the status must report a save failure rather than successful persistence.
+
+## Strict socket enforcement (opt-in, version 0.3.0)
+
+1. First verify the same app/probe still behaves as expected with Strict socket enforcement OFF (the default).
+2. Enable it in Settings, allow time for the client to receive a reply, then choose Block In and Out. Attempt new TCP and UDP sockets using the probe and a previously bypassing app. Verify fresh data at a controlled server, not cached screens. IPC must continue to work and Settings must remain accessible.
+3. Begin a TCP transfer with Allow Both, then change to Block In and Out. On the next denied intercepted operation, expect shutdown; even an unhooked later write on that same socket should fail. Connections that never hit a hook are not promised to stop.
+4. Choose Allow Both and establish a NEW connection. The previously shut-down socket will not revive. Relaunch apps that do not reconnect automatically.
+5. Test Block Incoming Only: covered reads must fail; outgoing writes may still work. Test IPv4, IPv6, connected and unconnected UDP separately. A failed shutdown must not allow the covered call.
+6. Test pipes/files/AF_UNIX IPC, broker restart, airplane mode, VPN, and locking/unlocking. Strict mode must not break the broker's own loopback channel. Losing a reply must not irreversibly shut down previously allowed sockets solely due to an IPC timeout.
+7. Reset to defaults and verify strict mode is OFF, including after respring. Test upgraded 0.2.0 state: strict mode must start OFF.
+
+Record app, version, jailbreak, Clients row, strict setting and remote-peer evidence for every remaining bypass. A successful app launch or displayed rule is insufficient. Rootless YouTube crash investigation remains deferred.

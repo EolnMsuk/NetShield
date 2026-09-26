@@ -16,6 +16,7 @@
     if ((self = [super init])) {
         _enabled = [state[@"enabled"] isKindOfClass:NSNumber.class] ? [state[@"enabled"] boolValue] : YES;
         _prompts = [state[@"prompts"] isKindOfClass:NSNumber.class] ? [state[@"prompts"] boolValue] : YES;
+        _strict = [state[@"strict"] isKindOfClass:NSNumber.class] ? [state[@"strict"] boolValue] : NO;
         _rules = [NSMutableDictionary new];
         _names = [NSMutableDictionary new];
         NSDictionary *savedRules = state[@"rules"];
@@ -39,7 +40,7 @@
     return self;
 }
 - (void)save {
-    NSDictionary *state = @{@"version": @2, @"enabled": @(_enabled), @"prompts": @(_prompts),
+    NSDictionary *state = @{@"version": @3, @"enabled": @(_enabled), @"prompts": @(_prompts), @"strict": @(_strict),
                             @"rules": _rules, @"names": _names};
     if (![state writeToFile:NSStore atomically:YES]) {
         _status = @"Save failed — changes are in memory only";
@@ -53,6 +54,7 @@
     // Called on the main queue, like rule edits and broker requests.
     _enabled = YES;
     _prompts = YES;
+    _strict = NO;
     [_rules removeAllObjects];
     [_names removeAllObjects];
     [_pending removeAllObjects];
@@ -87,6 +89,7 @@
         ![port isKindOfClass:NSNumber.class] || port.intValue < 0 || port.intValue > 65535)
         return @{@"mask": @(-1), @"enabled": @YES};
     BOOL registration = [info[@"kind"] isEqual:@"register"];
+    BOOL creation = [info[@"kind"] isEqual:@"create"];
     NSDictionary *previous = _clients[identity];
     BOOL newProcess = !previous || ![previous[@"pid"] isEqual:info[@"pid"]];
     if (_clients.count < 2048 || previous) {
@@ -94,12 +97,12 @@
             @"pid": [info[@"pid"] isKindOfClass:NSNumber.class] ? info[@"pid"] : @0,
             @"hooks": @([info[@"hooks"] isEqual:@YES]),
             @"extraHooks": [info[@"extraHooks"] isKindOfClass:NSNumber.class] ? info[@"extraHooks"] : @0,
-            @"observed": @(!registration || (!newProcess && [previous[@"observed"] boolValue]))};
+            @"observed": @((!registration && !creation) || (!newProcess && [previous[@"observed"] boolValue]))};
     }
     int value = _rules[identity] ? [_rules[identity] intValue] : NSUnknown;
     if (_names.count < 2048 || _names[identity]) _names[identity] = name;
     NSDictionary *event = @{@"identity": identity, @"name": name, @"host": host, @"port": port,
-        @"direction": direction, @"date": [NSDate date], @"kind": registration ? @"register" : @"socket",
+        @"direction": direction, @"date": [NSDate date], @"kind": registration ? @"register" : (creation ? @"create" : @"socket"),
         @"result": registration ? @"Client registered" : (NSAllows(_enabled, value, direction.intValue) ? @"Allowed" : @"Blocked")};
     // Bound IPC activity/history; each app reports at most once per second normally.
     if (!registration || newProcess) [_events insertObject:event atIndex:0];
@@ -109,7 +112,7 @@
         for (NSDictionary *item in _pending) if ([item[@"identity"] isEqualToString:identity]) { exists = YES; break; }
         if (!exists) [_pending addObject:[event mutableCopy]];
     }
-    return @{@"mask": @(value), @"enabled": @(_enabled)};
+    return @{@"mask": @(value), @"enabled": @(_enabled), @"strict": @(_strict)};
 }
 @end
 

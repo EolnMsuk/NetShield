@@ -5,6 +5,10 @@
 #import "Shared.h"
 
 %group SocketHooks
+%hookf(int, socket, int domain, int type, int protocol) {
+    if (!NSCheckSocketCreation(domain)) return -1;
+    return %orig;
+}
 %hookf(int, connect, int fd, const struct sockaddr *address, socklen_t length) {
     if (address && address->sa_family == AF_UNSPEC) return %orig; // UDP disconnect
     if (!NSCheckSocket(fd, NSOutbound, address, length)) return -1;

@@ -36,6 +36,14 @@ int main(void) {
         assert(NSSelectableRule(migrated));
         assert((migrated & ~old) == 0); // Migration cannot grant a new direction.
     }
+    assert(NSStrictShutdownDecision(1, 0, 101, 100) == NSShutdownBoth);
+    assert(NSStrictShutdownDecision(1, NSOutbound, 101, 100) == NSShutdownReceive);
+    assert(NSStrictShutdownDecision(1, NSBoth, 101, 100) == NSShutdownNone);
+    assert(NSStrictShutdownDecision(1, NSUnknown, 101, 100) == NSShutdownNone);
+    assert(NSStrictShutdownDecision(0, 0, 101, 100) == NSShutdownNone);
+    assert(NSStrictShutdownDecision(1, 0, 103, 100) == NSShutdownNone);
+    assert(NSStrictShutdownDecision(1, 0, 99, 100) == NSShutdownNone);
+    assert(NSStrictShutdownDecision(1, 0, 1, 0) == NSShutdownNone);
     puts("Policy tests passed");
     return 0;
 }

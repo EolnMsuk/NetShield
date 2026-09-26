@@ -11,6 +11,7 @@
 void NSStartClient(void);
 unsigned NSInstallAdditionalSocketHooks(void);
 void NSClientHooksReady(unsigned extraHooks);
+bool NSCheckSocketCreation(int domain);
 bool NSCheckSocket(int fd, int direction, const struct sockaddr *address, socklen_t length);
 void NSStartBroker(void);
 void NSShowDashboard(void);
@@ -21,6 +22,7 @@ BOOL NSDeviceLocked(void);
 @property(nonatomic) BOOL enabled;
 @property(nonatomic) BOOL ipcOnline;
 @property(nonatomic) BOOL prompts;
+@property(nonatomic) BOOL strict;
 @property(nonatomic, strong) NSMutableDictionary *rules;
 @property(nonatomic, strong) NSMutableDictionary *names;
 @property(nonatomic, strong) NSMutableArray *pending;
