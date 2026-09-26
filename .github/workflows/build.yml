@@ -80,12 +80,12 @@ jobs:
           set -euo pipefail
           cd "$PROJECT_DIR"
           gmake clean package FINALPACKAGE=1 THEOS_PACKAGE_SCHEME=rootless 2>&1 | tee "$RUNNER_TEMP/netshield-build.log"
-          test -n "$(find packages -name '*.deb' -print -quit)"
+          test -f packages/com.eolnmsuk.netshield_1.0.0_iphoneos-arm64.deb
       - name: Upload package
         uses: actions/upload-artifact@v4
         with:
           name: NetShield-iOS16-rootless
-          path: ${{ env.PROJECT_DIR }}/packages/*.deb
+          path: ${{ env.PROJECT_DIR }}/packages/com.eolnmsuk.netshield_1.0.0_iphoneos-arm64.deb
           if-no-files-found: error
       - name: Upload build diagnostics
         if: always()
