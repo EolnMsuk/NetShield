@@ -1,0 +1,11 @@
+.theos/
+packages/
+*.deb
+__pycache__/
+tests/policy_test
+Tests/out/
+.theos-toolchain/
+
+# Locally downloaded CI diagnostics (upload as artifacts, not source inputs).
+/netshield-build.log
+/theos-revision.txt
