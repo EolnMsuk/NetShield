@@ -10,8 +10,10 @@
     return broker;
 }
 - (instancetype)init {
+    return [self initWithState:[NSDictionary dictionaryWithContentsOfFile:NSStore]];
+}
+- (instancetype)initWithState:(NSDictionary *)state {
     if ((self = [super init])) {
-        NSDictionary *state = [NSDictionary dictionaryWithContentsOfFile:NSStore];
         _enabled = [state[@"enabled"] isKindOfClass:NSNumber.class] ? [state[@"enabled"] boolValue] : YES;
         _prompts = [state[@"prompts"] isKindOfClass:NSNumber.class] ? [state[@"prompts"] boolValue] : YES;
         _rules = [NSMutableDictionary new];
@@ -20,7 +22,7 @@
         if ([savedRules isKindOfClass:NSDictionary.class]) {
             [savedRules enumerateKeysAndObjectsUsingBlock:^(id key, id value, BOOL *stop) {
                 if ([key isKindOfClass:NSString.class] && [value isKindOfClass:NSNumber.class] && NSValidRule([value intValue]))
-                    self.rules[key] = value;
+                    self.rules[key] = @(NSNormalizeStoredRule([value intValue]));
             }];
         }
         NSDictionary *savedNames = state[@"names"];
@@ -31,12 +33,13 @@
         }
         _pending = [NSMutableArray new];
         _events = [NSMutableArray new];
+        _clients = [NSMutableDictionary new];
         _status = @"Starting broker";
     }
     return self;
 }
 - (void)save {
-    NSDictionary *state = @{@"version": @1, @"enabled": @(_enabled), @"prompts": @(_prompts),
+    NSDictionary *state = @{@"version": @2, @"enabled": @(_enabled), @"prompts": @(_prompts),
                             @"rules": _rules, @"names": _names};
     if (![state writeToFile:NSStore atomically:YES]) {
         _status = @"Save failed — changes are in memory only";
@@ -47,7 +50,7 @@
     notify_post(NSChanged);
 }
 - (void)setRule:(NSInteger)value identity:(NSString *)identity {
-    if (!NSValidRule((int)value) || !identity.length) return;
+    if (!NSSelectableRule((int)value) || !identity.length) return;
     _rules[identity] = @(value);
     NSIndexSet *indices = [_pending indexesOfObjectsPassingTest:^BOOL(NSDictionary *item, NSUInteger idx, BOOL *stop) {
         return [item[@"identity"] isEqualToString:identity];
@@ -71,13 +74,23 @@
         (direction.intValue != NSInbound && direction.intValue != NSOutbound) ||
         ![port isKindOfClass:NSNumber.class] || port.intValue < 0 || port.intValue > 65535)
         return @{@"mask": @(-1), @"enabled": @YES};
+    BOOL registration = [info[@"kind"] isEqual:@"register"];
+    NSDictionary *previous = _clients[identity];
+    BOOL newProcess = !previous || ![previous[@"pid"] isEqual:info[@"pid"]];
+    if (_clients.count < 2048 || previous) {
+        _clients[identity] = @{@"identity": identity, @"name": name, @"date": [NSDate date],
+            @"pid": [info[@"pid"] isKindOfClass:NSNumber.class] ? info[@"pid"] : @0,
+            @"hooks": @([info[@"hooks"] isEqual:@YES]),
+            @"extraHooks": [info[@"extraHooks"] isKindOfClass:NSNumber.class] ? info[@"extraHooks"] : @0,
+            @"observed": @(!registration || (!newProcess && [previous[@"observed"] boolValue]))};
+    }
     int value = _rules[identity] ? [_rules[identity] intValue] : NSUnknown;
     if (_names.count < 2048 || _names[identity]) _names[identity] = name;
     NSDictionary *event = @{@"identity": identity, @"name": name, @"host": host, @"port": port,
-        @"direction": direction, @"date": [NSDate date],
-        @"result": NSAllows(_enabled, value, direction.intValue) ? @"Allowed" : @"Blocked"};
+        @"direction": direction, @"date": [NSDate date], @"kind": registration ? @"register" : @"socket",
+        @"result": registration ? @"Client registered" : (NSAllows(_enabled, value, direction.intValue) ? @"Allowed" : @"Blocked")};
     // Bound IPC activity/history; each app reports at most once per second normally.
-    [_events insertObject:event atIndex:0];
+    if (!registration || newProcess) [_events insertObject:event atIndex:0];
     if (_events.count > 250) [_events removeLastObject];
     if (_enabled && value == NSUnknown && _pending.count < 100) {
         BOOL exists = NO;

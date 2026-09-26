@@ -71,11 +71,13 @@
         NSString *bundle = NSBundle.mainBundle.bundleIdentifier;
         if ([bundle isEqualToString:@"com.apple.springboard"]) {
             dispatch_async(dispatch_get_main_queue(), ^{ NSStartBroker(); });
-        } else if (![bundle isEqualToString:@"com.apple.Preferences"] &&
-                   ![bundle hasPrefix:@"com.apple."]) {
-            // Apple services are intentionally exempt. Extensions have separate identities.
+        } else if (![bundle isEqualToString:@"com.apple.Preferences"]) {
+            // Keep Settings available for recovery. Filter Apple apps as well as third-party apps.
+            // The injection filter remains app-scoped, not a blanket daemon injection.
             NSStartClient();
             %init(SocketHooks);
+            unsigned extraHooks = NSInstallAdditionalSocketHooks();
+            NSClientHooksReady(extraHooks);
         }
     }
 }

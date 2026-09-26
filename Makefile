@@ -6,7 +6,7 @@ INSTALL_TARGET_PROCESSES = SpringBoard Preferences
 include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = NetShield
-NetShield_FILES = Sources/Tweak.xm Sources/Client.mm Sources/Broker.mm Sources/Dashboard.mm Sources/IPC.mm
+NetShield_FILES = Sources/Tweak.xm Sources/Client.mm Sources/Broker.mm Sources/Dashboard.mm Sources/IPC.mm Sources/AdditionalHooks.mm
 NetShield_CFLAGS = -fobjc-arc -Wall -Wextra -Wno-unused-parameter
 NetShield_CCFLAGS = -std=c++17
 NetShield_FRAMEWORKS = Foundation UIKit

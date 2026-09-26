@@ -6,6 +6,7 @@
 #import <notify.h>
 #import <string.h>
 #import <atomic>
+#import <os/log.h>
 #import "Shared.h"
 
 static std::atomic<int> mask{NSUnknown};
@@ -17,11 +18,59 @@ static int changeToken;
 static std::atomic<double> nextRefresh{0};
 static std::atomic<double> lastReply{0};
 static thread_local bool inside = false;
+static dispatch_source_t registrationTimer;
+static std::atomic<bool> hooksReady{false};
+static std::atomic<unsigned> additionalHooks{0};
+static std::atomic<bool> sawSocket{false};
+static os_log_t clientLog;
+static bool attemptedReply = false;
+static bool brokerReachable = false; // worker queue only
+
+static void NSApplyReply(NSDictionary *reply, uint64_t version) {
+    NSNumber *value = reply[@"mask"], *active = reply[@"enabled"];
+    BOOL valid = [value isKindOfClass:NSNumber.class] && [active isKindOfClass:NSNumber.class] &&
+        (value.intValue == NSUnknown || NSSelectableRule(value.intValue));
+    if (!attemptedReply || valid != brokerReachable) {
+        attemptedReply = true;
+        os_log_with_type(clientLog, OS_LOG_TYPE_DEFAULT, "broker reply %{public}s", valid ? "received" : "missing or invalid; covered traffic blocked");
+        brokerReachable = valid;
+    }
+    if (generation.load() != version) return;
+    mask.store(valid && !active.boolValue ? NSBoth : (valid ? value.intValue : NSUnknown));
+    lastReply.store(valid ? NSProcessInfo.processInfo.systemUptime : 0);
+}
+
+void NSClientHooksReady(unsigned extraHooks) {
+    additionalHooks.store(extraHooks);
+    hooksReady.store(true);
+    os_log_with_type(clientLog, OS_LOG_TYPE_DEFAULT, "hook setup completed; additional entries: %u", extraHooks);
+    registrationTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, worker);
+    dispatch_source_set_timer(registrationTimer, DISPATCH_TIME_NOW, 5 * NSEC_PER_SEC, NSEC_PER_SEC);
+    dispatch_source_set_event_handler(registrationTimer, ^{
+        @autoreleasepool {
+            inside = true;
+            @try {
+                NSDictionary *info = @{@"identity": identity, @"name": displayName, @"kind": @"register",
+                    @"host": @"", @"port": @0, @"direction": @(NSOutbound), @"pid": @(getpid()),
+                    @"hooks": @(hooksReady.load()), @"extraHooks": @(additionalHooks.load())};
+                uint64_t version = generation.load();
+                NSApplyReply(NSRequestPolicy(info), version);
+            } @catch (NSException *exception) {
+                mask.store(NSUnknown);
+                lastReply.store(0);
+            } @finally { inside = false; }
+        }
+    });
+    dispatch_resume(registrationTimer);
+}
 
 void NSStartClient(void) {
     NSBundle *bundle = NSBundle.mainBundle;
     identity = bundle.bundleIdentifier ?: [@"exec:" stringByAppendingString:NSProcessInfo.processInfo.arguments.firstObject ?: @"unknown"];
     displayName = [bundle objectForInfoDictionaryKey:@"CFBundleDisplayName"] ?: [bundle objectForInfoDictionaryKey:@"CFBundleName"] ?: NSProcessInfo.processInfo.processName;
+    if (displayName.length > 128) displayName = [displayName substringToIndex:128];
+    clientLog = os_log_create("com.netshield", "client");
+    os_log_with_type(clientLog, OS_LOG_TYPE_DEFAULT, "client loaded: %{public}@ pid %d", identity, getpid());
     worker = dispatch_queue_create("com.netshield.client", DISPATCH_QUEUE_SERIAL);
     notify_register_dispatch(NSChanged, &changeToken, worker, ^(int token) {
         generation.fetch_add(1);
@@ -35,13 +84,18 @@ bool NSCheckSocket(int fd, int direction, const struct sockaddr *address, sockle
     if (inside || !worker) return true;
     struct sockaddr_storage local = {};
     socklen_t size = sizeof(local);
-    // Do not touch files, pipes or AF_UNIX IPC. No fd cache: descriptors are reused.
-    if (getsockname(fd, (struct sockaddr *)&local, &size) != 0 ||
-        (local.ss_family != AF_INET && local.ss_family != AF_INET6)) {
-        errno = savedErrno;
-        return true;
-    }
+    // Only known non-sockets/invalid descriptors pass through on classification failure.
+    // A sandbox or transient getsockname failure must not grant network access.
     inside = true;
+    int classified = getsockname(fd, (struct sockaddr *)&local, &size);
+    int classificationError = errno;
+    if (classified != 0 || (local.ss_family != AF_INET && local.ss_family != AF_INET6)) {
+        bool allowed = classified == 0 || classificationError == ENOTSOCK || classificationError == EBADF;
+        inside = false;
+        errno = allowed ? savedErrno : EACCES;
+        return allowed;
+    }
+    if (!sawSocket.exchange(true)) os_log_with_type(clientLog, OS_LOG_TYPE_DEFAULT, "first IP socket intercepted");
     @autoreleasepool {
         double now = NSProcessInfo.processInfo.systemUptime;
         bool expected = false;
@@ -65,7 +119,7 @@ bool NSCheckSocket(int fd, int direction, const struct sockaddr *address, sockle
                 port = ntohs(v6->sin6_port);
             }
             NSDictionary *info = @{@"identity": identity, @"name": displayName,
-                @"direction": @(direction), @"host": [NSString stringWithUTF8String:host], @"port": @(port), @"pid": @(getpid())};
+                @"direction": @(direction), @"host": [NSString stringWithUTF8String:host], @"port": @(port), @"pid": @(getpid()), @"hooks": @(hooksReady.load()), @"extraHooks": @(additionalHooks.load())};
             uint64_t version = generation.load();
             nextRefresh.store(now + 1.0);
             dispatch_async(worker, ^{
@@ -74,14 +128,7 @@ bool NSCheckSocket(int fd, int direction, const struct sockaddr *address, sockle
                     inside = true;
                     @try {
                         NSDictionary *reply = NSRequestPolicy(info);
-                        if (generation.load() == version) {
-                            NSNumber *value = reply[@"mask"], *active = reply[@"enabled"];
-                            BOOL valid = [value isKindOfClass:NSNumber.class] && [active isKindOfClass:NSNumber.class];
-                            // Store effective policy as one atomic value: no torn enable/mask state.
-                            mask.store(valid && !active.boolValue ? NSBoth :
-                                       (valid && NSValidRule(value.intValue) ? value.intValue : NSUnknown));
-                            lastReply.store(valid ? NSProcessInfo.processInfo.systemUptime : 0);
-                        }
+                        NSApplyReply(reply, version);
                     } @catch (NSException *exception) {
                         mask.store(NSUnknown);
                     }

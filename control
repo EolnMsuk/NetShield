@@ -1,6 +1,6 @@
 Package: com.netshield.tweak
 Name: NetShield
-Version: 0.1.0
+Version: 0.2.0
 Architecture: iphoneos-arm64
 Description: Experimental prompt-based socket access control inspired by PyFirewall.
 Maintainer: NetShield contributors

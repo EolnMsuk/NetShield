@@ -6,14 +6,14 @@
 [1;31m> [1;3;39mMaking all for tweak NetShield…[m
 [0;31m==> [1;39mPreprocessing Sources/Tweak.xm…[m
 [0;31m==> [1;39mPreprocessing Sources/Tweak.xm…[m
-[0;32m==> [1;39mCompiling Sources/Broker.mm (arm64)…[m
-[0;32m==> [1;39mCompiling Sources/Client.mm (arm64)…[m
 [0;32m==> [1;39mCompiling Sources/Client.mm (arm64e)…[m
+[0;32m==> [1;39mCompiling Sources/Broker.mm (arm64)…[m
 [0;32m==> [1;39mCompiling Sources/Broker.mm (arm64e)…[m
-[0;32m==> [1;39mCompiling Sources/IPC.mm (arm64)…[m
 [0;32m==> [1;39mCompiling Sources/Dashboard.mm (arm64)…[m
 [0;32m==> [1;39mCompiling Sources/Dashboard.mm (arm64e)…[m
+[0;32m==> [1;39mCompiling Sources/IPC.mm (arm64)…[m
 [0;32m==> [1;39mCompiling Sources/IPC.mm (arm64e)…[m
+[0;32m==> [1;39mCompiling Sources/Client.mm (arm64)…[m
 [0;32m==> [1;39mCompiling Sources/Tweak.xm (arm64)…[m
 [0;32m==> [1;39mCompiling Sources/Tweak.xm (arm64e)…[m
 [0;33m==> [1;39mLinking tweak NetShield (arm64)…[m

@@ -6,6 +6,6 @@
 <key>CFBundleExecutable</key><string>NetShieldPrefs</string>
 <key>CFBundlePackageType</key><string>BNDL</string>
 <key>CFBundleVersion</key><string>1</string>
-<key>CFBundleShortVersionString</key><string>0.1.0</string>
+<key>CFBundleShortVersionString</key><string>0.2.0</string>
 <key>NSPrincipalClass</key><string>NSRootListController</string>
 </dict></plist>

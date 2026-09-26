@@ -1,13 +1,14 @@
 # NetShield
 
-An experimental iOS 16 rootless jailbreak port of PyFirewall's **default-block, ask, then remember** concept. Written in Objective-C/Objective-C++ with Theos. The dark native dashboard has Requests, Activity, Rules, and Settings pages. Open it through **Settings → NetShield → Open NetShield Dashboard**.
+An experimental iOS 16 rootless jailbreak port of PyFirewall's **default-block, ask, then remember** concept. Written in Objective-C/Objective-C++ with Theos. The dark native dashboard has Requests, Activity, Rules, Clients, and Settings pages. Open it through **Settings → NetShield → Open NetShield Dashboard**.
 
 **This is a userspace socket-hook prototype, not a device-wide firewall.** It has not yet been compiled with the iOS SDK or tested on a jailbroken device in this workspace. Build with the included workflow and complete the device tests below before relying on it. Stock iOS is unsupported.
 
 ## What is implemented
 
+- Injected clients register on launch and every five seconds while running. Unknown clients can prompt before any socket traffic is observed. The Clients page distinguishes registration from observed socket checks.
 - Intercepted unknown IPv4/IPv6 attempts immediately return `-1` / `EACCES` before calling the original network function.
-- SpringBoard queues an access prompt: **Keep Blocking**, **Allow In Only**, **Allow Out Only**, **Allow Both**, or **Later (Remain Blocked)**.
+- SpringBoard queues an access prompt: **Block Incoming Only**, **Block In and Out**, **Allow Both**, or **Later (Remain Blocked)**.
 - No network thread waits for a human decision. The app must retry after approval; NetShield does not replay requests. A first attempt can fail even for an existing allow rule while the asynchronous policy cache warms up.
 - Persistent per-bundle-ID rules, with executable-path identity for an explicitly injected command-line process. Extensions have their own identities.
 - Requests are deduplicated by identity. Later defers automatic re-prompting until respring; the request remains in the dashboard. Delete a saved rule to ask again on the next attempt.
@@ -19,17 +20,19 @@ An experimental iOS 16 rootless jailbreak port of PyFirewall's **default-block, 
 
 ## Enforcement boundary
 
-The filter injects into UIKit-linked processes and SpringBoard. The constructor exempts `com.apple.*` processes (including Settings); SpringBoard runs only the broker/UI. A non-UIKit daemon needs an explicit executable entry in `NetShield.plist` and device testing. Do not inject this broadly into system daemons. The diagnostic `netshield-probe` executable is already listed.
+The filter matches UIKit/UIKitCore bundles or the UIApplication class, plus explicit SpringBoard and probe executable entries. Both third-party and Apple apps are now eligible for filtering. Settings remains exempt for recovery; SpringBoard runs the broker/UI without socket hooks. This is still an app-oriented injection filter, not blanket injection into system daemons. Apps/extensions that do not match it or have injection disabled are not covered.
 
-Hooks: `connect`, `connectx`, `listen`, `accept`, `send`, `sendto`, `sendmsg`, `write`, `writev`, `recv`, `recvfrom`, `recvmsg`, `read`, and `readv`. Non-IP descriptors (files, pipes, AF_UNIX) pass through. IPv4/IPv6 loopback and LAN sockets are subject to the same rules as Internet sockets.
+Each injected client starts a five-second registration/refresh timer after hook setup. Unknown registered clients enter Requests even if their traffic uses an unhooked path. Clients shows the latest PID, last contact, completion of hook setup, extra entry-point count, and whether an IP socket check reached the broker. Registration and a displayed rule do not prove enforcement. See [Tests/COVERAGE.md](Tests/COVERAGE.md) for the diagnostic procedure.
+
+Hooks: `connect`, `connectx`, `listen`, `accept`, `send`, `sendto`, `sendmsg`, `write`, `writev`, `recv`, `recvfrom`, `recvmsg`, `read`, and `readv`. Optional internal and non-cancelable variants of connect, accept, sendto/sendmsg, recvfrom/recvmsg, and read/write/readv/writev are resolved at runtime. Missing symbols are skipped; addresses aliasing an existing hook are deduplicated. Known non-IP descriptors (files, pipes, AF_UNIX) pass through; unexpected socket-classification failures deny the operation. IPv4/IPv6 loopback and LAN sockets are subject to the same rules as Internet sockets.
 
 **Known bypasses and limits:**
 
-- Apps with injection disabled, direct syscalls, unhooked APIs (including `sendfile` and batched/message variants), and code that bypasses hooked library entry points are outside coverage.
-- Network.framework/QUIC, WebKit networking helpers, DNS services, background NSURLSession transfers and other delegated system work may bypass the client or be attributed to a helper. The requester is not reliably recoverable in this architecture. Safari and other Apple apps are explicitly exempt.
+- Apps with injection disabled, direct syscalls, unavailable private entry points, unhooked APIs (including `sendfile` and batched/message variants), and code that bypasses hooked library entry points are outside coverage.
+- Network.framework/QUIC, WebKit networking helpers, DNS services, background NSURLSession transfers and other delegated system work may bypass the client or be attributed to a helper. The requester is not reliably recoverable in this architecture. Safari and Mail are no longer explicitly exempt, but their separate networking helpers remain outside the app filter. An in-app rule alone cannot promise to control those helpers.
 - Blocking a receive function prevents the app from reading bytes through that hook. It does **not** stop packets, TCP ACKs, handshakes on existing listeners, or retransmissions in the kernel. Already queued data and active transfers are not recalled when a rule changes.
 - A Darwin notification invalidates cached rules; there is also a one-second activity-driven refresh and a three-second successful-reply expiry. Brief old-policy windows and calls already past the check are possible. Missing/failed broker replies deny intercepted calls. Policy checks use a nonblocking loopback UDP socket with a 250 ms reply wait on the dedicated worker. Dropped replies deny access until a later successful refresh; a fresh socket on every check allows recovery after respring.
-- The injected client reports its own identity over local UDP IPC (`127.0.0.1:49671`). It is not authenticated with an audit token; malicious clients can spoof checks and fill the bounded request queue. There is no IPC rule-write endpoint. Requests carry a random correlation ID, but the broker is not cryptographically authenticated: a hostile local process that occupies the port before SpringBoard can impersonate it. Port conflicts make the real broker report an IPC failure. This transport is loopback-only; it does not expose a LAN listener. This is a convenience control for cooperative apps, not protection against hostile apps or other tweaks. A production security boundary requires authenticated IPC and OS-level enforcement.
+- The injected client reports its own identity over local UDP IPC (`127.0.0.1:49671`). It is not authenticated with an audit token; malicious clients can spoof checks and fill the bounded request queue. The Clients page contains self-reported diagnostics and is not an authenticated process inventory. There is no IPC rule-write endpoint. Requests carry a random correlation ID, but the broker is not cryptographically authenticated: a hostile local process that occupies the port before SpringBoard can impersonate it. Port conflicts make the real broker report an IPC failure. This transport is loopback-only; it does not expose a LAN listener. This is a convenience control for cooperative apps, not protection against hostile apps or other tweaks. A production security boundary requires authenticated IPC and OS-level enforcement.
 - Windows-specific features such as Defender rules, domain/CIDR rules, CSV export, upload thresholds and tray integration are not ported.
 
 For reliable device-wide pre-egress filtering and original-app attribution, a separate privileged filtering/provider design is required. This project does not assume that Network Extension entitlements or a kernel filtering facility are available just because the device is jailbroken.
@@ -43,7 +46,7 @@ The workflow is **`.github/workflows/build.yml`** inside this folder. GitHub dis
 3. Open **Actions → Build NetShield → Run workflow**. Pushes/PRs touching the project also run it.
 4. Download the **NetShield-iOS16-rootless** artifact and extract the `.deb`.
 
-The job uses a macOS runner, Apple's clang for `arm64` + `arm64e`, Theos, the pinned iOS 16.5 SDK release, host policy and IPC tests, and rootless packaging. The package includes the optional diagnostic probe (`BUILD_PROBE=1`). Theos itself tracks its upstream default branch; the exact revision, SDK checksum and Xcode version are included in diagnostics. No signing certificate or GitHub secret is needed for a jailbreak package. CI produces artifacts, not a published release.
+The job uses a macOS runner, Apple's clang for `arm64` + `arm64e`, Theos, the pinned iOS 16.5 SDK release, host policy, IPC and broker registration tests, and rootless packaging. The package includes the optional diagnostic probe (`BUILD_PROBE=1`). Theos itself tracks its upstream default branch; the exact revision, SDK checksum and Xcode version are included in diagnostics. No signing certificate or GitHub secret is needed for a jailbreak package. CI produces artifacts, not a published release.
 
 The [Theos rootless documentation](https://theos.dev/docs/rootless) describes the install prefix, `iphoneos-arm64` packaging and arm64e toolchain requirements. The workflow uses the [official Theos SDK release](https://github.com/theos/sdks/releases/tag/master-146e41f). Policy messaging uses system UDP sockets bound to loopback, with no third-party IPC library or bootstrap Mach-service lookup. The client uses its existing app network permissions; sandbox or VPN policies that deny loopback cause checks to fail closed. RootHide conversion still requires device validation; a successful patch alone does not establish injection or IPC compatibility.
 
@@ -64,6 +67,8 @@ Install the 16.5 SDK in `$THEOS/sdks` first. Omit `BUILD_PROBE=1` to omit the co
 3. Open Settings → NetShield. Check that the dashboard reports **Broker online**. Protection is enabled by default.
 4. Force-close and relaunch a third-party app so the tweak is loaded. Trigger a request, choose a rule, then retry. Most apps should use **Allow Both**.
 5. Review blocked requests and saved rules in the dashboard. Turning off automatic prompts still blocks unknown identities. Turning off protection permits intercepted traffic after policy refresh.
+
+The rule choices are **Block Incoming Only** (allow sends, deny receives), **Block In and Out**, and **Allow Both**. Incoming includes replies to outgoing connections; this is not a stateful firewall. Existing Allow Out Only rules retain their behavior and get the new label. Retired Allow In Only rules become Block In and Out when loaded, without granting new access; choose a new rule explicitly if desired.
 
 Rules/settings are atomically saved by SpringBoard to `/var/mobile/Library/Preferences/com.netshield.state.plist` (mode 0600). This is mobile user data, separate from the rootless package install tree. Save failures are shown in the dashboard. Pending requests and history disappear on respring. Uninstalling leaves this preferences file for reinstallation; remove that one file and respring if you want to reset all settings.
 
@@ -88,6 +93,7 @@ Local validation on Windows: plist/layout checks and C policy/cache-expiry asser
 | --- | --- |
 | `Sources/Tweak.xm` | Injection exclusions and BSD socket hooks |
 | `Sources/Client.mm` | Nonblocking client and bounded-age policy cache |
+| `Sources/AdditionalHooks.mm` | Optional internal/non-cancelable socket entry points |
 | `Sources/IPC.mm` | Bounded loopback UDP policy transport |
 | `Sources/Broker.mm` | SpringBoard request queue, policy store, history |
 | `Sources/Dashboard.mm` | Dark dashboard and allow/block prompts |

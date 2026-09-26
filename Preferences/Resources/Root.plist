@@ -4,5 +4,5 @@
 <dict><key>cell</key><string>PSGroupCell</string><key>label</key><string>NetShield · iOS 16 rootless</string>
 <key>footerText</key><string>Experimental socket access control inspired by PyFirewall. The dashboard runs in SpringBoard. Unlock your device to manage rules.</string></dict>
 <dict><key>cell</key><string>PSButtonCell</string><key>label</key><string>Open NetShield Dashboard</string><key>action</key><string>openDashboard</string></dict>
-<dict><key>cell</key><string>PSGroupCell</string><key>footerText</key><string>Unknown intercepted traffic is blocked until approved. Restart or retry the requesting app after allowing. Apple processes and paths that bypass the socket hooks are not protected. If the dashboard does not open, respring and verify that NetShield is loaded in SpringBoard.</string></dict>
+<dict><key>cell</key><string>PSGroupCell</string><key>footerText</key><string>Unknown intercepted traffic is blocked until approved. Restart or retry the requesting app after allowing. Settings, SpringBoard, shared networking helpers and paths that bypass socket hooks are not filtered. Use Clients to inspect app registration. If the dashboard does not open, respring and verify that NetShield is loaded in SpringBoard.</string></dict>
 </array></dict></plist>

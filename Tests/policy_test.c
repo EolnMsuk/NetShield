@@ -26,6 +26,16 @@ int main(void) {
     assert(!NSCachedAllows(NSUnknown, NSOutbound, 101, 100)); // Invalidation
     assert(!NSCachedAllows(NSBoth, NSOutbound, 99, 100)); // Invalid clock order
     assert(NSCachedAllows(NSBoth, NSOutbound, 501, 500)); // Recovery
+    assert(NSSelectableRule(0));
+    assert(NSSelectableRule(NSOutbound));
+    assert(NSSelectableRule(NSBoth));
+    assert(!NSSelectableRule(NSInbound));
+    assert(!NSSelectableRule(NSUnknown));
+    for (int old = 0; old <= NSBoth; ++old) {
+        int migrated = NSNormalizeStoredRule(old);
+        assert(NSSelectableRule(migrated));
+        assert((migrated & ~old) == 0); // Migration cannot grant a new direction.
+    }
     puts("Policy tests passed");
     return 0;
 }

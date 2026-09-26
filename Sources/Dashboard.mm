@@ -1,4 +1,5 @@
 #import "Shared.h"
+#import <UIKit/UIKit.h>
 
 @interface SBLockScreenManager : NSObject
 + (instancetype)sharedInstance;
@@ -42,23 +43,24 @@ static void NSHideIfIdle(void) {
 
 static NSString *NSRuleLabel(NSInteger mask) {
     switch (mask) {
-        case NSInbound: return @"Allow in · block out";
-        case NSOutbound: return @"Allow out · block in";
-        case NSBoth: return @"Allow both";
-        default: return @"Block both";
+        case NSOutbound: return @"Block Incoming Only";
+        case NSBoth: return @"Allow Both";
+        default: return @"Block In and Out";
     }
 }
 
 static void NSChoose(UIViewController *presenter, NSDictionary *item, BOOL editing, void (^done)(void)) {
     if (NSDeviceLocked()) return;
     NSString *identity = item[@"identity"];
-    NSString *body = [NSString stringWithFormat:@"%@\n%@\n\nIntercepted traffic is blocked until allowed. In = receive; out = send. Most apps need both. Retry the app after choosing. Applies to Wi-Fi and cellular.",
+    NSString *body = [NSString stringWithFormat:@"%@\n%@\n\nChoose a policy for this app. Block Incoming Only allows sends but blocks reads, including replies to outgoing requests. Most apps need Allow Both. Retry the app after choosing. Applies to Wi-Fi and cellular.",
                       item[@"name"] ?: identity, identity];
     if ([item[@"host"] length]) body = [body stringByAppendingFormat:@"\nDestination: %@:%@", item[@"host"], item[@"port"]];
     UIAlertController *alert = [UIAlertController alertControllerWithTitle:editing ? @"NetShield · Edit rule" : @"NetShield · Network access" message:body preferredStyle:UIAlertControllerStyleAlert];
-    NSArray *labels = @[@"Keep Blocking", @"Allow In Only", @"Allow Out Only", @"Allow Both"];
-    for (NSInteger value = 0; value <= 3; value++) {
-        [alert addAction:[UIAlertAction actionWithTitle:labels[value] style:value == 0 ? UIAlertActionStyleDestructive : UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+    NSArray *labels = @[@"Block Incoming Only", @"Block In and Out", @"Allow Both"];
+    NSArray *values = @[@(NSOutbound), @0, @(NSBoth)];
+    for (NSUInteger index = 0; index < labels.count; index++) {
+        NSInteger value = [values[index] integerValue];
+        [alert addAction:[UIAlertAction actionWithTitle:labels[index] style:value == 0 ? UIAlertActionStyleDestructive : UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
             if (!NSDeviceLocked()) [NSBroker.shared setRule:value identity:identity];
             done();
         }]];
@@ -85,7 +87,7 @@ static void NSChoose(UIViewController *presenter, NSDictionary *item, BOOL editi
     self.title = @"NetShield";
     self.tableView.backgroundColor = [UIColor colorWithWhite:0.07 alpha:1];
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(close)];
-    UISegmentedControl *tabs = [[UISegmentedControl alloc] initWithItems:@[@"Requests", @"Activity", @"Rules", @"Settings"]];
+    UISegmentedControl *tabs = [[UISegmentedControl alloc] initWithItems:@[@"Requests", @"Activity", @"Rules", @"Clients", @"Settings"]];
     tabs.selectedSegmentIndex = 0;
     [tabs addTarget:self action:@selector(changePage:) forControlEvents:UIControlEventValueChanged];
     tabs.frame = CGRectMake(12, 10, self.view.bounds.size.width - 24, 36);
@@ -112,6 +114,11 @@ static void NSChoose(UIViewController *presenter, NSDictionary *item, BOOL editi
         for (NSString *key in [[b.rules allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)])
             [rows addObject:@{@"identity": key, @"name": b.names[key] ?: key, @"mask": b.rules[key]}];
         self.rows = rows;
+    } else if (self.page == 3) {
+        NSMutableArray *rows = [NSMutableArray new];
+        for (NSString *key in [[b.clients allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)])
+            [rows addObject:b.clients[key]];
+        self.rows = rows;
     } else self.rows = @[@"Protection", @"Automatic prompts", @"Clear activity", @"About"];
     [self.tableView reloadData];
 }
@@ -121,14 +128,14 @@ static void NSChoose(UIViewController *presenter, NSDictionary *item, BOOL editi
     return [NSString stringWithFormat:@"%@ · %lu pending", b.enabled ? @"Protection ON" : @"Protection OFF", (unsigned long)b.pending.count];
 }
 - (NSString *)tableView:(UITableView *)tableView titleForFooterInSection:(NSInteger)section {
-    return [NSString stringWithFormat:@"%@\nExperimental socket hooks · third-party injected processes only. Apple processes are exempt. Activity is sampled access checks, not a packet capture. Wi-Fi + cellular share rules.", NSBroker.shared.status];
+    return [NSString stringWithFormat:@"%@\nExperimental socket hooks in injected apps. Settings and SpringBoard are exempt. Clients shows registration, not guaranteed coverage. Activity is sampled access checks, not a packet capture. Wi-Fi + cellular share rules.", NSBroker.shared.status];
 }
 - (UITableViewCell *)tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)path {
     UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:nil];
     cell.backgroundColor = [UIColor colorWithWhite:0.12 alpha:1];
     cell.detailTextLabel.numberOfLines = 0;
     cell.textLabel.numberOfLines = 2;
-    if (self.page == 3) {
+    if (self.page == 4) {
         cell.textLabel.text = self.rows[path.row];
         if (path.row < 2) {
             UISwitch *toggle = [UISwitch new];
@@ -146,10 +153,15 @@ static void NSChoose(UIViewController *presenter, NSDictionary *item, BOOL editi
     if (self.page == 2) {
         cell.detailTextLabel.text = [NSString stringWithFormat:@"%@\n%@", detail, NSRuleLabel([item[@"mask"] integerValue])];
         cell.textLabel.textColor = [item[@"mask"] intValue] == 0 ? UIColor.systemRedColor : UIColor.systemGreenColor;
+    } else if (self.page == 3) {
+        NSString *seen = [NSDateFormatter localizedStringFromDate:item[@"date"] dateStyle:NSDateFormatterNoStyle timeStyle:NSDateFormatterMediumStyle];
+        cell.detailTextLabel.text = [NSString stringWithFormat:@"%@\nPID %@ - last seen %@\n%@ - extra socket entries %@\n%@", detail, item[@"pid"], seen,
+            [item[@"hooks"] boolValue] ? @"Hook setup completed" : @"Client loaded", item[@"extraHooks"],
+            [item[@"observed"] boolValue] ? @"Socket traffic observed" : @"No socket traffic observed; registration is not proof of coverage"];
     } else {
         NSString *time = [NSDateFormatter localizedStringFromDate:item[@"date"] dateStyle:NSDateFormatterNoStyle timeStyle:NSDateFormatterMediumStyle];
         cell.detailTextLabel.text = [NSString stringWithFormat:@"%@\n%@ · %@ · %@\n%@:%@", detail, time,
-            [item[@"direction"] intValue] == NSInbound ? @"IN" : @"OUT", item[@"result"], [item[@"host"] length] ? item[@"host"] : @"Socket", item[@"port"]];
+            [item[@"kind"] isEqual:@"register"] ? @"APP START" : ([item[@"direction"] intValue] == NSInbound ? @"IN" : @"OUT"), item[@"result"], [item[@"host"] length] ? item[@"host"] : @"Socket", item[@"port"]];
         cell.textLabel.textColor = [item[@"result"] isEqualToString:@"Allowed"] ? UIColor.systemGreenColor : UIColor.systemOrangeColor;
     }
     cell.accessoryType = UITableViewCellAccessoryDisclosureIndicator;
@@ -165,14 +177,14 @@ static void NSChoose(UIViewController *presenter, NSDictionary *item, BOOL editi
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)path {
     [tableView deselectRowAtIndexPath:path animated:YES];
     if (self.presentedViewController || NSDeviceLocked()) return;
-    if (self.page != 3) {
+    if (self.page != 4) {
         NSDictionary *item = self.rows[path.row];
         NSChoose(self, item, NSBroker.shared.rules[item[@"identity"]] != nil, ^{ [self refresh]; });
     } else if (path.row == 2) {
         [NSBroker.shared.events removeAllObjects];
         [self refresh];
     } else if (path.row == 3) {
-        UIAlertController *about = [UIAlertController alertControllerWithTitle:@"NetShield 0.1 · Experimental" message:@"Inspired by PyFirewall. Intercepts selected BSD socket functions in injected third-party processes. It is not a kernel firewall. Network.framework, WebKit helpers, background daemons, direct syscalls and injection-disabled apps may bypass it. Inbound permission controls delivery to the app, not arrival at the device.\n\nRules persist; pending requests and 250 sampled activity entries stay in memory. First attempts fail with EACCES; retry after allowing. Read README before testing." preferredStyle:UIAlertControllerStyleAlert];
+        UIAlertController *about = [UIAlertController alertControllerWithTitle:@"NetShield 0.2 · Experimental" message:@"Inspired by PyFirewall. Registers injected apps on launch and intercepts selected BSD socket functions. Apple apps are included; Settings and SpringBoard stay exempt. It is not a kernel firewall. Network.framework, WebKit helpers, background daemons, direct syscalls and injection-disabled apps may bypass it. Inbound permission controls delivery to the app, not arrival at the device.\n\nRules persist; pending requests and 250 sampled activity entries stay in memory. First attempts fail with EACCES; retry after allowing. Read README before testing." preferredStyle:UIAlertControllerStyleAlert];
         [about addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:about animated:YES completion:nil];
     }
