@@ -15,7 +15,7 @@
 		<key>label</key>
 		<string>NetShield</string>
 		<key>icon</key>
-		<string>NetShield.png</string>
+		<string>icon.png</string>
 	</dict>
 </dict>
 </plist>

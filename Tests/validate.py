@@ -45,7 +45,9 @@ assert "/var/mobile/Library/Preferences/com.eolnmsuk.netshield.plist" in (root /
 assert metadata["Version"] == info["CFBundleShortVersionString"] == "1.0.0"
 assert metadata["Author"] == metadata["Maintainer"] == "EolnMsuk"
 assert metadata["Homepage"] == "https://github.com/EolnMsuk/NetShield"
-assert loader["entry"]["icon"] == "NetShield.png"
+# Bundle-backed entries resolve icons inside NetShieldPrefs.bundle, not beside the loader plist.
+assert loader["entry"]["icon"] == "icon.png"
+assert (root / "Preferences/Resources" / loader["entry"]["icon"]).is_file()
 assert "Tests/Probe" not in make
 assert "BUILD_PROBE" not in (root / ".github/workflows/build.yml").read_text()
 assert "netshield-probe" not in (root / "NetShield.plist").read_text()
