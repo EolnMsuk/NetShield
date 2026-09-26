@@ -10,7 +10,14 @@
     return broker;
 }
 - (instancetype)init {
-    return [self initWithState:[NSDictionary dictionaryWithContentsOfFile:NSStore]];
+    // Preserve pre-release preferences when adopting the official settings domain.
+    BOOL hasOfficialState = [NSFileManager.defaultManager fileExistsAtPath:NSStore];
+    NSDictionary *state = [NSDictionary dictionaryWithContentsOfFile:NSStore];
+    if (!hasOfficialState)
+        state = [NSDictionary dictionaryWithContentsOfFile:@"/var/mobile/Library/Preferences/com.netshield.state.plist"];
+    self = [self initWithState:state];
+    if (self && !hasOfficialState && state) [self save];
+    return self;
 }
 - (instancetype)initWithState:(NSDictionary *)state {
     if ((self = [super init])) {

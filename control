@@ -1,4 +1,4 @@
-Package: com.netshield.tweak
+Package: com.eolnmsuk.netshield
 Name: NetShield
 Version: 1.0.0
 Architecture: iphoneos-arm64
@@ -6,6 +6,8 @@ Description: Per-app network access control with optional strict socket enforcem
 Maintainer: EolnMsuk
 Author: EolnMsuk
 Section: Tweaks
+Conflicts: com.netshield.tweak
+Replaces: com.netshield.tweak
 Homepage: https://github.com/EolnMsuk/NetShield
 Icon: https://raw.githubusercontent.com/EolnMsuk/NetShield/main/assets/icon.png
 Depends: firmware (>= 16.0), firmware (<< 17.0), mobilesubstrate, preferenceloader

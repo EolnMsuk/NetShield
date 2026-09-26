@@ -31,7 +31,7 @@ assert b"\r" not in control_bytes, "control must use Unix LF line endings for De
 control = control_bytes.decode("utf-8")
 assert "Architecture: iphoneos-arm64" in control
 assert "rocketbootstrap" not in control.lower()
-loader = plistlib.loads((root / "layout/Library/PreferenceLoader/Preferences/NetShield.plist").read_bytes())
+loader = plistlib.loads((root / "layout/Library/PreferenceLoader/Preferences/com.eolnmsuk.netshield.plist").read_bytes())
 assert loader["entry"]["bundle"] == "NetShieldPrefs"
 assert (root / "Preferences/Resources/Info.plist").is_file()
 assert not list((root / "layout").glob("var/jb/**")), "Theos adds the rootless prefix"
@@ -40,6 +40,8 @@ print(f"Validated {len(plists)} plists, source paths, dependencies and rootless 
 # Release metadata and shipped artwork must agree with the package.
 metadata = dict(line.split(": ", 1) for line in control.splitlines() if ": " in line)
 info = plistlib.loads((root / "Preferences/Resources/Info.plist").read_bytes())
+assert metadata["Package"] == "com.eolnmsuk.netshield"
+assert "/var/mobile/Library/Preferences/com.eolnmsuk.netshield.plist" in (root / "Sources/Shared.h").read_text()
 assert metadata["Version"] == info["CFBundleShortVersionString"] == "1.0.0"
 assert metadata["Author"] == metadata["Maintainer"] == "EolnMsuk"
 assert metadata["Homepage"] == "https://github.com/EolnMsuk/NetShield"

@@ -6,7 +6,7 @@
 #import "IPC.h"
 #define NSChanged "com.netshield.rules-changed"
 #define NSShow "com.netshield.show-dashboard"
-#define NSStore @"/var/mobile/Library/Preferences/com.netshield.state.plist"
+#define NSStore @"/var/mobile/Library/Preferences/com.eolnmsuk.netshield.plist"
 
 void NSStartClient(void);
 unsigned NSInstallAdditionalSocketHooks(void);
