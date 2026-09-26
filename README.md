@@ -1,10 +1,8 @@
+# NetShield ⛨
+
+**Per-app network access control for jailbroken iOS 16** Manage app access from a native dashboard, save allow/block rules, review activity, and optionally enable strict socket enforcement.
+
 ![NetShield](assets/banner.png)
-
-# NetShield
-
-**Per-app network access control for jailbroken iOS 16, by EolnMsuk.**
-
-NetShield 1.0.0 is the first official release. Manage app access from a native dashboard, save allow/block rules, review activity, and optionally enable strict socket enforcement.
 
 ## Install
 
