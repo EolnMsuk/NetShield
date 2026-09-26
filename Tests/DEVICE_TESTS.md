@@ -55,3 +55,7 @@ If SpringBoard fails to present its overlay, collect its crash log, confirm the 
 ## Launch registration and coverage
 
 Follow [COVERAGE.md](COVERAGE.md) on rootless and separately after user-side RootHide conversion. Run X/Twitter and YouTube first, then Safari and Mail. A prompt without successful denial of fresh remote traffic is a coverage failure, not a pass. Verify old inbound-only rules become Block In and Out and old outbound-only rules retain their behavior under Block Incoming Only.
+
+## Reset to defaults
+
+With saved rules, pending requests, activity and client records present, turn Protection and Automatic prompts OFF. In dashboard Settings, select Reset to Defaults. Cancel once and verify nothing changes. Confirm the reset and verify both switches are ON, all old rules/names and pending/history/client records are cleared, and the broker remains online. Running apps may immediately register again and create new requests. Allow a previously allowed app to check in: it must now be unknown and prompt again. Respring and verify old rules and disabled settings do not return. Confirming after the device locks must not reset state. If persistence fails, the status must report a save failure rather than successful persistence.

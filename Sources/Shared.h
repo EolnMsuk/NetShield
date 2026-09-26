@@ -31,6 +31,7 @@ BOOL NSDeviceLocked(void);
 - (instancetype)initWithState:(NSDictionary *)state;
 - (NSDictionary *)check:(NSString *)message userInfo:(NSDictionary *)info;
 - (void)save;
+- (void)resetToDefaults;
 - (void)setRule:(NSInteger)mask identity:(NSString *)identity;
 - (void)removeRule:(NSString *)identity;
 @end

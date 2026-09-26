@@ -72,6 +72,8 @@ The rule choices are **Block Incoming Only** (allow sends, deny receives), **Blo
 
 Rules/settings are atomically saved by SpringBoard to `/var/mobile/Library/Preferences/com.netshield.state.plist` (mode 0600). This is mobile user data, separate from the rootless package install tree. Save failures are shown in the dashboard. Pending requests and history disappear on respring. Uninstalling leaves this preferences file for reinstallation; remove that one file and respring if you want to reset all settings.
 
+To start over, open the dashboard's **Settings > Reset to Defaults** and confirm. This clears saved rules and app names, pending requests, activity, and client records, restores Protection and Automatic prompts to ON, saves the default state, and invalidates client policy caches. Running apps will register again and may generate new prompts; client/activity lists need not remain empty. If saving fails, the dashboard reports that changes are in memory only.
+
 Recovery: disable NetShield in your jailbreak's tweak manager and relaunch affected apps/respring, or uninstall the package in safe mode. The normal Settings process is exempt from filtering. No OS firewall configuration is changed by installation.
 
 ## Test before relying on it

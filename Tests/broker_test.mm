@@ -7,9 +7,14 @@ void NSShowDashboard(void) {}
 void NSPresentNext(void) {}
 @interface MemoryBroker : NSBroker
 @property(nonatomic) NSUInteger saves;
+@property(nonatomic, copy) NSDictionary *savedState;
 @end
 @implementation MemoryBroker
-- (void)save { self.saves++; }
+- (void)save {
+    self.saves++;
+    self.savedState = @{@"version": @2, @"enabled": @(self.enabled), @"prompts": @(self.prompts),
+        @"rules": [self.rules copy], @"names": [self.names copy]};
+}
 @end
 
 int main(void) {
@@ -57,7 +62,30 @@ int main(void) {
         info[@"identity"] = @"other.app";
         [broker check:@"check" userInfo:info];
         assert(broker.pending.count == 0); // Disabled protection does not prompt on launch.
-        puts("Broker registration, diagnostics, rule choices and migration tests passed");
+        broker.enabled = YES;
+        info[@"identity"] = @"pending.app";
+        [broker check:@"check" userInfo:info];
+        assert(broker.pending.count > 0 && broker.clients.count > 0 && broker.events.count > 0);
+        assert(broker.rules.count > 0 && broker.names.count > 0);
+        broker.enabled = NO;
+        broker.prompts = NO;
+        broker.ipcOnline = YES;
+        NSUInteger savesBeforeReset = broker.saves;
+        [broker resetToDefaults];
+        assert(broker.enabled && broker.prompts && broker.ipcOnline);
+        assert(broker.rules.count == 0 && broker.names.count == 0);
+        assert(broker.pending.count == 0 && broker.events.count == 0 && broker.clients.count == 0);
+        assert(broker.saves == savesBeforeReset + 1);
+        NSBroker *reloaded = [[NSBroker alloc] initWithState:broker.savedState];
+        assert(reloaded.enabled && reloaded.prompts && reloaded.rules.count == 0 && reloaded.names.count == 0);
+        reply = [broker check:@"check" userInfo:info];
+        assert([reply[@"mask"] intValue] == NSUnknown && [reply[@"enabled"] boolValue]);
+        assert(broker.pending.count == 1 && broker.clients.count == 1);
+        broker.ipcOnline = NO;
+        [broker resetToDefaults];
+        assert(!broker.ipcOnline); // Reset cannot claim a failed listener is healthy.
+        assert(broker.pending.count == 0 && broker.clients.count == 0);
+        puts("Broker registration, diagnostics, rules, migration and reset tests passed");
     }
     return 0;
 }

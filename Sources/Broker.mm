@@ -49,6 +49,18 @@
     }
     notify_post(NSChanged);
 }
+- (void)resetToDefaults {
+    // Called on the main queue, like rule edits and broker requests.
+    _enabled = YES;
+    _prompts = YES;
+    [_rules removeAllObjects];
+    [_names removeAllObjects];
+    [_pending removeAllObjects];
+    [_events removeAllObjects];
+    [_clients removeAllObjects];
+    // Preserve actual listener health. Save also invalidates injected clients' caches.
+    [self save];
+}
 - (void)setRule:(NSInteger)value identity:(NSString *)identity {
     if (!NSSelectableRule((int)value) || !identity.length) return;
     _rules[identity] = @(value);

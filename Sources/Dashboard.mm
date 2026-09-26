@@ -119,7 +119,7 @@ static void NSChoose(UIViewController *presenter, NSDictionary *item, BOOL editi
         for (NSString *key in [[b.clients allKeys] sortedArrayUsingSelector:@selector(localizedCaseInsensitiveCompare:)])
             [rows addObject:b.clients[key]];
         self.rows = rows;
-    } else self.rows = @[@"Protection", @"Automatic prompts", @"Clear activity", @"About"];
+    } else self.rows = @[@"Protection", @"Automatic prompts", @"Clear activity", @"Reset to Defaults", @"About"];
     [self.tableView reloadData];
 }
 - (NSInteger)tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section { return self.rows.count; }
@@ -144,6 +144,9 @@ static void NSChoose(UIViewController *presenter, NSDictionary *item, BOOL editi
             [toggle addTarget:self action:@selector(toggle:) forControlEvents:UIControlEventValueChanged];
             cell.accessoryView = toggle;
             cell.detailTextLabel.text = path.row == 0 ? @"Off permits intercepted traffic after the next policy refresh." : @"Off keeps unknown apps blocked; review Requests manually.";
+        } else if (path.row == 3) {
+            cell.textLabel.textColor = UIColor.systemRedColor;
+            cell.detailTextLabel.text = @"Clear all rules, requests, activity and clients; restore Protection and Automatic prompts to ON.";
         }
         return cell;
     }
@@ -184,6 +187,17 @@ static void NSChoose(UIViewController *presenter, NSDictionary *item, BOOL editi
         [NSBroker.shared.events removeAllObjects];
         [self refresh];
     } else if (path.row == 3) {
+        UIAlertController *reset = [UIAlertController alertControllerWithTitle:@"Reset NetShield?"
+            message:@"This clears all saved rules, app names, pending requests, activity and clients, and turns Protection and Automatic prompts ON. This cannot be undone. Running apps will register again and may prompt for new rules."
+            preferredStyle:UIAlertControllerStyleAlert];
+        [reset addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+        [reset addAction:[UIAlertAction actionWithTitle:@"Reset to Defaults" style:UIAlertActionStyleDestructive handler:^(UIAlertAction *action) {
+            if (NSDeviceLocked()) return;
+            [NSBroker.shared resetToDefaults];
+            [self refresh];
+        }]];
+        [self presentViewController:reset animated:YES completion:nil];
+    } else if (path.row == 4) {
         UIAlertController *about = [UIAlertController alertControllerWithTitle:@"NetShield 0.2 · Experimental" message:@"Inspired by PyFirewall. Registers injected apps on launch and intercepts selected BSD socket functions. Apple apps are included; Settings and SpringBoard stay exempt. It is not a kernel firewall. Network.framework, WebKit helpers, background daemons, direct syscalls and injection-disabled apps may bypass it. Inbound permission controls delivery to the app, not arrival at the device.\n\nRules persist; pending requests and 250 sampled activity entries stay in memory. First attempts fail with EACCES; retry after allowing. Read README before testing." preferredStyle:UIAlertControllerStyleAlert];
         [about addAction:[UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil]];
         [self presentViewController:about animated:YES completion:nil];
