@@ -1,0 +1,83 @@
+# iOS 16 rootless / patched RootHide acceptance tests
+
+Record device model, iOS version, jailbreak/injection version, package revision and RootHide patcher/version (when applicable) with results. None of these device tests has been run in the Windows authoring environment.
+
+Run the suite separately on rootless and on a RootHide-converted package, without RocketBootstrap installed. On RootHide, use the converted probe path from the installed package rather than the rootless path below. Verify SpringBoard and app injection independently.
+
+## Fresh install and activation
+
+With no saved state, verify Protection, Automatic prompts and Strict socket enforcement are OFF. Launch an injected app immediately: traffic must pass before the first policy reply, with no prompt. Wait longer than the three-second policy expiry and repeat; disabled protection must still pass traffic. Verify a disabled client stays permissive if the broker becomes unreachable.
+
+Enable Protection and Automatic prompts explicitly, wait for a broker reply, and verify unknown covered traffic is now blocked and queued. Once enabled, expired/missing replies must fail closed. A newly launched process remains permissive until its first valid reply even if protection was saved ON; record this startup window as a coverage limit.
+
+Confirm the Settings list/title icons, GitHub link and Venmo link on device. Inspect the installed file list to confirm the official deb has no probe. Verify package-manager artwork after the repository publishes its Icon URL.
+
+## Controlled traffic
+
+Build/install the developer probe separately and add it to a local test injection filter as described in projectstructure.md. The official package does not ship or inject this tool.
+
+1. On a LAN computer you control, run `python Tests/echo_peer.py tcp 8765`. Permit this listener through that computer's firewall only as needed for your test network.
+2. Install the CI package, respring, unlock the phone, and open the NetShield dashboard once. Verify **Broker online**, then explicitly enable Protection and Automatic prompts and wait for client activation.
+3. Through a terminal/SSH session on the phone run `/var/jb/usr/bin/netshield-probe tcp COMPUTER_IP 8765` as the mobile user. Use a numeric IP; do not use a hostname. Confirm the jailbreak injects into the probe. If there is no NetShield request and traffic succeeds, this is a failed injection/coverage test.
+4. After client activation and before approval, expect `Permission denied` (`EACCES`) from connect/send and **no probe payload at the peer**. The app identity is `exec:` followed by its executable path. The probe retries every two seconds.
+5. Choose **Block In and Out**. Expect denial on every retry and one saved Block Both rule, without recurring prompts.
+6. Edit to **Block Incoming Only**. After cache refresh, expect the peer to receive payloads but the probe's `recv` to fail with EACCES. A TCP reply may still reach the kernel; this is expected for a userspace hook.
+7. Edit to **Allow Both**. Expect the probe to send and receive echoed data.
+8. Edit to **Block In and Out**. New outgoing attempts and hooked reads should be denied. Confirm no Allow In Only choice remains.
+9. Delete the rule. Expect blocking and another prompt on subsequent attempts. Choose Later; verify the pending request remains and is editable in Requests without immediate re-prompting.
+10. Repeat with `echo_peer.py udp 8765` and `netshield-probe udp COMPUTER_IP 8765`. UDP must be denied before the original `sendto`, not merely logged after sending.
+11. Repeat TCP and UDP using IPv6: run the peer with `--ipv6` and use the computer's routable LAN IPv6 address. The simple probe does not parse link-local `%interface` scope suffixes.
+
+Use packet capture on the controlled peer for independent evidence. A dashboard row alone does not demonstrate filtering. A missing dashboard row does not demonstrate absence of traffic.
+
+## UI, lifecycle and regressions
+
+| Case | Expected result |
+| --- | --- |
+| Two apps request simultaneously | One alert at a time; separate pending identities |
+| Repeated attempts by one app | One queued prompt, bounded sampled history |
+| Device locked before request | No prompt until unlock; hook still denies |
+| Lock while alert/dashboard open | Overlay hides on polling interval; buttons cannot change rules while locked |
+| Respring and relaunch probe | Rules persist; history/queue reset; new process passes until the first policy reply; active cache-warming calls can fail |
+| Disable automatic prompts | Unknown calls denied; request appears in dashboard |
+| Disable protection | Calls permitted after async refresh; no new prompts |
+| Re-enable protection | Existing block rules enforced on later checks |
+| Existing connection revoked | Later hooked I/O denied after invalidation/expiry; in-flight/kernel traffic may finish |
+| Broker unavailable after activation | Intercepted calls denied after at most three seconds of stale allow; no caller thread waits for human/IPC |
+| Broker stops responding, then recovers | Worker times out and later refreshes succeed without relaunching the app |
+| Port 49671 already occupied before respring | Dashboard reports IPC unavailable; investigate the local port owner |
+| Wi-Fi/cellular unavailable; airplane mode | Local policy requests still reach SpringBoard; external traffic may naturally fail |
+| VPN/local-network permission changes | Verify loopback IPC works in each sandboxed test app; denied IPC must fail closed |
+| Ordinary app loopback sockets | Remain subject to policy; no blanket loopback exemption |
+| Remote connection to device port 49671 | No reply; broker binds only to 127.0.0.1 |
+| File, pipe, AF_UNIX I/O | Normal local operations work; no access prompts |
+| Reused/duplicated socket fd | Correct socket classification; no stale per-fd rule |
+| No network | No alert loop; retry possible after reconnect |
+| Settings/SpringBoard | Exempt from filtering for recovery and broker/UI |
+| Safari/Mail and third-party apps | Register and prompt when injected; test their separate network paths rather than assuming complete coverage |
+| Wi-Fi → cellular / VPN | Same rules apply; verify each app independently |
+| Rule persistence write failure | Dashboard reports save failure; no claim that rule is durable |
+
+Also test representative third-party apps using URLSession, WebKit, Network.framework and QUIC, plus background transfers and injection-disabled apps. **Document bypasses as failures of coverage, not successes because a different socket was blocked.** The probe only validates the particular BSD functions it calls. Exercise listen/accept and read/write/readv/writev/sendmsg/recvmsg with an app-level harness if those paths matter to your deployment.
+
+If SpringBoard fails to present its overlay, collect its crash log, confirm the dashboard reports a working loopback listener, and inspect `SBLockScreenManager.isUILocked` and UIWindowScene behavior on that jailbreak. These are private interfaces requiring on-device validation.
+
+## Launch registration and coverage
+
+Follow [COVERAGE.md](COVERAGE.md) on rootless and separately after user-side RootHide conversion. Run X/Twitter and YouTube first, then Safari and Mail. A prompt without successful denial of fresh remote traffic is a coverage failure, not a pass. Verify old inbound-only rules become Block In and Out and old outbound-only rules retain their behavior under Block Incoming Only.
+
+## Reset to defaults
+
+With saved rules, pending requests, activity and clients present, turn all three settings ON. Cancel Reset to Defaults once and verify nothing changes. Confirm reset: all three switches must be OFF, old rules/names and pending/history/client records cleared, and broker status preserved. Running apps may register again but must not queue new access requests while disabled. After policy refresh, traffic must pass without prompting; recreate any sockets previously shut down by strict mode. Respring and verify disabled settings persist and old rules do not return. Re-enable Protection and verify unknown covered traffic is blocked again. Confirming while the device is locked must not reset state. Persistence failures must show a save error.
+
+## Strict socket enforcement (opt-in, version 1.0.0)
+
+1. First verify the same app/probe still behaves as expected with Strict socket enforcement OFF (the default).
+2. Enable it in Settings, allow time for the client to receive a reply, then choose Block In and Out. Attempt new TCP and UDP sockets using the probe and a previously bypassing app. Verify fresh data at a controlled server, not cached screens. IPC must continue to work and Settings must remain accessible.
+3. Begin a TCP transfer with Allow Both, then change to Block In and Out. On the next denied intercepted operation, expect shutdown; even an unhooked later write on that same socket should fail. Connections that never hit a hook are not promised to stop.
+4. Choose Allow Both and establish a NEW connection. The previously shut-down socket will not revive. Relaunch apps that do not reconnect automatically.
+5. Test Block Incoming Only: covered reads must fail; outgoing writes may still work. Test IPv4, IPv6, connected and unconnected UDP separately. A failed shutdown must not allow the covered call.
+6. Test pipes/files/AF_UNIX IPC, broker restart, airplane mode, VPN, and locking/unlocking. Strict mode must not break the broker's own loopback channel. Losing a reply must not irreversibly shut down previously allowed sockets solely due to an IPC timeout.
+7. Reset to defaults and verify strict mode is OFF, including after respring. Test upgraded 0.2.0 state: strict mode must start OFF.
+
+Record app, version, jailbreak, Clients row, strict setting and remote-peer evidence for every remaining bypass. A successful app launch or displayed rule is insufficient. Rootless YouTube crash investigation remains deferred.

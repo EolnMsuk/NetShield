@@ -1,4 +1,5 @@
 ARCHS = arm64 arm64e
+# Keep deployment bounds aligned with control; other iOS majors require device validation.
 TARGET = iphone:clang:16.5:16.0
 THEOS_PACKAGE_SCHEME = rootless
 INSTALL_TARGET_PROCESSES = SpringBoard Preferences
@@ -14,7 +15,4 @@ NetShield_LIBRARIES = substrate
 
 include $(THEOS_MAKE_PATH)/tweak.mk
 SUBPROJECTS += Preferences
-ifeq ($(BUILD_PROBE),1)
-SUBPROJECTS += Tests/Probe
-endif
 include $(THEOS_MAKE_PATH)/aggregate.mk

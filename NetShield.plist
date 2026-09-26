@@ -12,7 +12,6 @@
 		<key>Executables</key>
 		<array>
 			<string>SpringBoard</string>
-			<string>netshield-probe</string>
 		</array>
 		<key>Classes</key>
 		<array>
