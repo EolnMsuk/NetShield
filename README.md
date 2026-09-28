@@ -1,3 +1,5 @@
+# Development for NetShield is discontinued, use [NetShield2](https://github.com/EolnMsuk/NetShield2) instead (doesn't require app injection + can capture OS level connections).
+
 # NetShield ⛨
 
 **Per-app network access control for jailbroken iOS 16**. Manage app access from a native dashboard, save allow/block rules, review activity, and optionally enable strict socket enforcement.
@@ -23,6 +25,6 @@ Choose **Allow Both**, **Block In and Out**, or **Block Incoming Only** for each
 
 NetShield controls intercepted socket calls in injected apps. Shared networking helpers, unhooked paths and apps without injection can bypass rules; it is not a device-wide firewall. Strict enforcement can shut down covered sockets, requiring new connections after allowing access again.
 
-[Technical details and project structure](projectstructure.md) | [GitHub](https://github.com/EolnMsuk/NetShield) | [Support EolnMsuk on Venmo](https://venmo.com/user/RustOnRails)
+[GitHub](https://github.com/EolnMsuk/NetShield) | [Support EolnMsuk on Venmo](https://venmo.com/user/RustOnRails)
 
-MIT licensed. Inspired by PyFirewall.
+MIT licensed. Inspired by [PyFirewall](https://github.com/EolnMsuk/PyFirewall).
