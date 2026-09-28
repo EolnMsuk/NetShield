@@ -1,4 +1,4 @@
-# NetShield is discontinued, use [NetShield2](https://github.com/EolnMsuk/NetShield2) instead (doesn't require app injection + can capture OS level connections).
+# NetShield is discontinued, use [NetShield2](https://github.com/EolnMsuk/NetShield2) instead.
 
 ---
 
