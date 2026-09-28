@@ -25,6 +25,6 @@ Choose **Allow Both**, **Block In and Out**, or **Block Incoming Only** for each
 
 NetShield controls intercepted socket calls in injected apps. Shared networking helpers, unhooked paths and apps without injection can bypass rules; it is not a device-wide firewall. Strict enforcement can shut down covered sockets, requiring new connections after allowing access again.
 
-[GitHub](https://github.com/EolnMsuk/NetShield) | [Support EolnMsuk on Venmo](https://venmo.com/user/RustOnRails)
+[Support EolnMsuk on Venmo](https://venmo.com/user/RustOnRails)
 
 MIT licensed. Inspired by [PyFirewall](https://github.com/EolnMsuk/PyFirewall).
