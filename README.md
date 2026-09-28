@@ -1,10 +1,10 @@
-# Development for NetShield is discontinued, use [NetShield2](https://github.com/EolnMsuk/NetShield2) instead (doesn't require app injection + can capture OS level connections).
+# NetShield is discontinued, use [NetShield2](https://github.com/EolnMsuk/NetShield2) instead (doesn't require app injection + can capture OS level connections).
 
-# NetShield ⛨
+---
+
+# NetShield
 
 **Per-app network access control for jailbroken iOS 16**. Manage app access from a native dashboard, save allow/block rules, review activity, and optionally enable strict socket enforcement.
-
-![NetShield](assets/banner.png)
 
 ## Install
 
